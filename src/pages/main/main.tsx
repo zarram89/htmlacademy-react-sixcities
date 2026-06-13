@@ -1,7 +1,7 @@
 import { Card } from '../../components/card/card';
 
 type MainProps = {
-    offersCount: number
+  offersCount: number
 }
 
 const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
@@ -29,7 +29,7 @@ const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
                 >
                   <div className="header__avatar-wrapper user__avatar-wrapper"></div>
                   <span className="header__user-name user__name">
-                    Oliver.conner@gmail.com
+                                        Oliver.conner@gmail.com
                   </span>
                   <span className="header__favorite-count">3</span>
                 </a>
@@ -91,7 +91,7 @@ const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
             <form className="places__sorting" action="#" method="get">
               <span className="places__sorting-caption">Sort by</span>
               <span className="places__sorting-type" tabIndex={0}>
-                  Popular
+                                Popular
                 <svg className="places__sorting-arrow" width="7" height="4">
                   <use xlinkHref="#icon-arrow-select"></use>
                 </svg>
@@ -127,4 +127,4 @@ const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
   </div>
 );
 
-export { Main };
+export default Main;

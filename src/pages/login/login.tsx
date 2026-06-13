@@ -46,7 +46,7 @@ const Login = (): JSX.Element => (
               className="login__submit form__submit button"
               type="submit"
             >
-                Sign in
+              Sign in
             </button>
           </form>
         </section>
@@ -62,4 +62,4 @@ const Login = (): JSX.Element => (
   </div>
 );
 
-export { Login };
+export default Login;

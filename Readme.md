@@ -250,6 +250,161 @@ Top rated first. От высокого рейтинга к низкому.
    Покройте код проекта тестами. Напишите тесты для всех компонентов, редьюсеров, асинхронных операций.
    В правой части страницы «Login» отображается кнопка для быстрого перехода к списку предложений по аренде в этом городе. Город для быстрого перехода определяется случайным образом. Клик по кнопке перенаправляет пользователя на главную страницу и устанавливает фильтр в соответствии с выбранным городом.
 
+### 1.10. Выбор проекта и настройка рабочего окружения
+
+Выбор проекта
+Для начала нужно выбрать проект, над которым будем работать. Как это сделать?
+
+Перейдите на страницу с проектами, изучите технические задания и выберите, с каким из проектов хочется поработать.
+Обратите внимание
+
+«Угадай мелодию» — это учебный проект. На его примере авторы разбирают темы курса, и этот проект не предназначен для работы студентов.
+«Шесть городов» — это личный проект с разборами домашних заданий. Вы можете после выполнения домашних заданий сверять свои результаты с нашим вариантом.
+«Что посмотреть» — это проект для полностью самостоятельной работы.
+Скачайте архив с начальным состоянием выбранного проекта, где уже подготовлена вся файловая структура, с которой вы будете работать. Вся работа над проектом ведётся на вашем компьютере локально. Ссылку на архив с начальным состоянием можно найти на странице с проектами.
+Настройка рабочего окружения
+Для будущей работы потребуется настроить окружение. Проверьте, что у вас:
+
+Установлены Node.js и npm.
+
+В редакторе установлен плагин editorconfig.
+
+В редакторе установлен плагин ESLint. Для настройки VS Code или WebStorm можете воспользоваться статьёй.
+
+### 1.11. Вооружён, значит опасен
+
+В этом задании мы подготовим фундамент для будущих экспериментов — создадим основу нашего приложения с помощью Create React App.
+
+Create React App — это инструмент, позволяющий моментально создать заготовку для React-приложения, с нужными директориями и файлами проекта. «Из коробки» CRA создаёт стартовый шаблон приложения, но также предоставляет возможность создавать собственные шаблоны на основе существующего. Для нашего курса мы подготовили собственный шаблон @htmlacademy/cra-template-typescript, в котором включены все зависимости (дополнительные пакеты), необходимые для разработки проекта.
+
+Задание
+Для создания проекта потребуется воспользоваться инструментом create-react-app. Отдельная установка не требуется. Достаточно воспользоваться утилитой npx. Для создания нового проекта на основе шаблона используйте параметр --template со значением @htmlacademy/cra-template-typescript. Выполните команду в терминале:
+
+npx create-react-app project --template @htmlacademy/cra-template-typescript
+
+project в этой команде — это имя проекта, его нужно оставить именно таким.
+
+После запуска команды создастся директория project, в ней будет находиться весь проект.
+
+Для того чтобы лучше ориентироваться в проекте, внимательно изучите руководство по работе с проектом, которое находится в файле Readme.md директории project, а также Readme-файлы во внутренних директориях project.
+
+Скопируйте все статичные ресурсы из директории markup в директорию public. Шрифты, стили, изображения: в зависимости от проекта некоторых ресурсов может не быть. Замените файл index.html в директории public на index.html из markup. Другие HTML-файлы с вёрсткой копировать не нужно.
+
+Чтобы проверить работу приложения, выполните команду npm start в директории созданного проекта — project (не забудьте в неё перейти). Если сборка прошла успешно и на странице вашего приложения вы видите Hello, world!, значит, всё выполнено верно.
+
+### 2.10. Начинаем программировать
+Задача
+В прошлом задании мы подготовили проект к работе. Пришло время опробовать React в деле. В этом задании мы напишем первые React-компоненты.
+
+Обратите внимание, для того, чтобы на данном этапе не возникало ошибок, нужно удалить файл app.test.tsx с тестом компонента app. Этот тест был написан для примера и проверял компонент с текстом Hello World!. В дальнейшем мы напишем собственные тесты для всего приложения.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+six-cities
+В директории /src/components создайте новый компонент (директория и файл в ней) и опишите в нём React-компонент, который будет отвечать за рендеринг главной страницы приложения. Название для компонента придумайте самостоятельно. Для модулей с компонентами используйте расширение .tsx. Пока это будет один большой компонент. Не пугайтесь, дальнейший рефакторинг его преобразит. Разметку вы найдёте в директории /markup. Вёрстка главной страницы представлена в файле main.html.
+
+Создайте в директории /src/components отдельный компонент для отображения одной карточки предложения в списке. Перенесите в него соответствующую часть разметки из компонента, созданного в первом шаге.
+
+Удалите из компонента, созданного в первом шаге, все статичные карточки предложений. Вместо них подключите компонент карточки предложения и выведите его столько раз, сколько было предусмотрено карточек предложений в изначальной разметке.
+
+В директории /src/components найдите компонент App, который был сформирован во время создания приложения при помощи «Create React App». Обновите его: компонент должен отрисовывать главную страницу.
+
+Откройте в директории /src файл index.tsx и отрисуйте с помощью ReactDOM компонент App в элемент #root. Весь нужный код уже есть в модуле. При необходимости внесите изменения.
+
+Запустите приложение с помощью команды npm start. Убедитесь, что приложение отображается корректно.
+
+Теперь, используя props, добавим динамики в компоненты. Для этого в компоненте главной страницы приложения определите изменяемые данные — это будет количество предложений аренды. Получите их из props и вставьте в JSX компонента.
+
+В файле index.tsx опишите данные, которые нужны в компоненте главной страницы приложения. Передайте их в компонент App.
+
+В App получите эти данные из props и передайте их в компонент главной страницы приложения.
+
+Ещё раз запустите приложение с помощью команды npm start. Убедитесь, что приложение отображается корректно.
+
+Аналогичным образом создайте компоненты для всех страниц приложения. Полный список страниц приложения доступен в техническом задании. Разметка для страниц в директории /markup. Каждая страница приложения — отдельный компонент. Компоненты страниц пока никуда не нужно подключать. При старте приложения по-прежнему должна отображаться главная страница приложения.
+
+Запустите проверку ESLint командой npm run lint. Убедитесь в отсутствии ошибок. Если они есть — исправьте.
+
+### Начинаем программировать
+Архив проекта
+
+В данном задании вы научитесь разбивать html разметку на react компоненты, а так же добавлять им динамики.
+
+Создаем компоненты
+Обратите внимание, что jsx имеет отличное название атрибутов от классического html, например:
+
+class → className
+style=”width: 80%» → style={{ width: «80%» }}
+tab-index=”0» → tabIndex={0}
+Чтобы преобразование из html в jsx было удобным, Вы можете воспользоваться готовыми сервисами, один из них — HTML to JSX. Данный сервис автоматически заменит нужные атрибуты и заменит парные теги на одиночные в тех местах, где это необходимо.
+
+Так же стоит обратить внимание на то, что react компоненты стоит называть с заглавной буквы, название должно точно описывать чем является компонент, например:
+
+Карточка объявления → <OfferCard />
+Список навигации → <NavigationList />
+Главная страница → <MainPage />
+Добавляем динамики
+Для того, чтобы добавить динамики компоненту, Вам следует использовать props. В данном задании динамическим компонентом является главная страница, на ней отображается то или иное количество карточек предложений аренды. Давайте отрисуем то количество карточек, которое приходит на страницу через props, а так же укажем это в соответствующем заголовке на странице.
+
+type MainProps = {
+    offersCount: number
+}
+
+const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
+  <div className="page page--gray page--main">
+        <b className="places__found">{offersCount} places to stay in Amsterdam</b> 
+    {Array.from({ length: offersCount }, () => <Card />)}
+  </div />
+)
+Далее подключаем страницу в главном компоненте нашего приложения — app.tsx, не забывая при этом указывать соответствующие типы.
+
+type AppProps = {
+  offersCount: number
+}
+
+const App = ({ offersCount }: AppProps): JSX.Element => <Main offersCount={offersCount} />;
+И наконец передаем нужное количество карточек аренды, которое стоит отрисовать, в точке входа нашего приложения — index.tsx.
+
+const CARDS_COUNT = 5;
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+
+root.render(
+  <React.StrictMode>
+    <App offersCount={CARDS_COUNT} />
+  </React.StrictMode>,
+);
+Проверяем, что карточки отрисовываются в зависимости от переданного количества через props:
+
+Повторяем
+По аналогии создаем оставшиеся страницы (на данном этапе добавлять им динамики не нужно) и проверяем наш код на наличие ошибок командой npm run lint (можно пока не обращать внимание на warnings — мы исправим их позже), после чего задание можно отправлять на проверку.
+
+### 3.9. Маршрут по тайным тропам
+
+Маршрутизация — важная часть одностраничного приложения (Single Page Application). Парадокс, но в нашем одностраничном приложении есть несколько страниц. Нужно как-то организовать связь между ними. Решить эту задачу поможет библиотека React Router. С её помощью мы построим маршрутизацию.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Создайте отдельный компонент для страницы «404» (если вы его не создали в прошлом задании). Дизайн остаётся на ваше усмотрение. В самом простом случае, это может быть страница с текстом «404 Not Found» и ссылкой для перехода на главную страницу приложения. На эту страницу пользователь будет перенаправлен в случае обращения к несуществующей странице (например, через адресную строку).
+
+Импортируйте все необходимые компоненты из пакета react-router-dom (BrowserRouter, Route, Routes).
+
+six-cities
+С помощью перечисленных ниже компонентов опишите все маршруты в приложении. По каждому адресу должен отрисовываться соответствующий компонент страницы.
+
+Main /
+Login /login
+Favorites /favorites
+Room /offer/:id
+Предусмотрите маршрут для обработки ситуаций, когда пользователь обращается к несуществующей странице (например, с помощью адресной строки). В этом случае он перенаправляется на страницу «404».
+
+Создайте компонент для описания приватных маршрутов. Этот компонент должен перенаправлять пользователя на страницу «Login», если он не авторизован. Воспользуйтесь новым компонентом и обновите маршрут для страницы «Favorites». Доступ к этой странице доступен только для авторизованных пользователей. Пока мы не взаимодействуем с настоящим сервером, передавайте компоненту информацию, что пользователь всегда не авторизован. Полноценную реализацию сделаем позже.
+
+Обратите внимание, что перелинковывать (связывать страницы ссылками) страницы пока не обязательно. Мы сделаем это позже. Чтобы не ругался ESLint, вы можете передать в пропс href ссылку-заглушку. Например, ссылку / (на главную страницу) или #todo.
+
 ### 3. Маршрутизация (React Router)
 Маршрут по тайным тропам
 Архив проекта
@@ -402,3 +557,592 @@ authorizationStatus={AuthorizationStatus.NoAuth}
 </BrowserRouter>
 );
 Для проверки маршрутизации посетите ряд созданных адресов и убедитесь, что страницы соответствуют своим адресам.
+
+
+### 4.12. Обратная сторона реальностиs
+
+Задача
+six-cities
+В /src создайте новую директорию mocks, а в ней новый файл offers.ts. Опишите в нём тестовые данные для 4 любых предложений по аренде недвижимости (не забудьте включить уникальный идентификатор). Эти данные потребуются как для отрисовки карточек с предложениями в списке, так и для отдельных страниц с полной информацией по предложению аренды. Код для генерации данных писать не нужно. Статичных данных достаточно.
+Обратите внимание, разные наборы данных вы можете описать в разных файлах. Например, в offers.ts оставить только данные по предложениям, а в reviews.ts описать отзывы. И так далее.
+
+Подключите созданные моки в index.tsx. Передайте их в виде props основному компоненту приложения (App).
+
+Обновите компонент «Карточка предложения». Добавьте возможность получения данных о предложении аренды через props.
+
+Создайте новый компонент «Список предложений». Компонент должен отрисовывать карточки с предложениями аренды с помощью компонента «Карточка предложения». Все необходимые данные компонент принимает через props.
+
+Добавьте в состояние компонента активную карточку с предложением (объект с данными предложения или только уникальный идентификатор предложения). Под активной карточкой предложения подразумевается карточка, на которую пользователь навёл курсор. Состояние пригодится нам в дальнейшем для реализации отображения маркеров предложений на карте.
+
+Передайте моковые предложения по аренде с помощью props компоненту «Главная страница».
+
+Обновите код компонента «Главная страница». Отрисуйте предложения по аренде с помощью компонента «Список предложений».
+
+Передайте странице «Favorites» через props набор данных (объектов) из моков. Вместо статичной вёрстки на странице должны отрисовываться карточки предложений.
+
+Используя компонент Link и хуки из пакета react-router-dom свяжите страницы приложения. Например, клик по заголовку карточки предложения должен переводить пользователя на страницу «Room» с подробным описанием предложения по аренде.
+
+Создайте новый компонент «Форма отправки комментария». Разметку для компонента вы найдёте в файле property.html. Реализуйте сохранение введённых в форму данных в state компонента.
+
+Замените на странице «Room» /offer/:id часть разметки на вновь созданный компонент.
+
+### Обратная сторона реальности
+Архив проекта
+
+В данном задании вы научитесь управлять состоянием (state) и попрактикуетесь в создании динамических компонентов, которые будут работать на моках.
+
+Создание моков
+Опишем начальную схему одного предложения, исходя из карточки на главной странице, в схему будут входить следующие свойства:
+
+price → цена аренды
+rating → рейтинг предложения
+title → заголовок предложения
+isPremium → признак премиум предложения
+isFavorite → признак избранного предложения
+type → тип предложения (по ТЗ один из apartment, room, house, hotel)
+previewImage → ссылка на фото-превью изображение
+city → данные о городе размещения
+id → уникальный идентификатор предложения
+Создадим соответствующий тип, а затем и массив из четырех предложений:
+
+export type Offer = {
+  id: number;
+  price: number;
+  rating: number;
+  title: string;
+  isPremium: boolean;
+  isFavorite: boolean;
+  previewImage: string;
+  type: 'apartment' | 'room' | 'house' | 'hotel';
+    city: {
+        name: string;   
+    }
+};
+import type { Offer } from '../types/types';
+
+const offers: Offer[] = [
+  {
+    id: 1,
+    price: 200,
+    rating: 4.4,
+    title: 'Beautiful & luxurious apartment at great location',
+    isPremium: true,
+    isFavorite: false,
+        previewImage: 'img/apartment-01.jpg',
+    type: 'apartment',
+        city: {
+      name: 'Amsterdam'
+    }
+  },
+  {
+    id: 2,
+    price: 20,
+    rating: 3.4,
+    title: 'A apartment at great location beautiful',
+    isPremium: false,
+    isFavorite: false,
+        previewImage: 'img/apartment-02.jpg',
+    type: 'room',
+        city: {
+      name: 'Paris'
+    }
+  },
+  {
+    id: 3,
+    price: 100,
+    rating: 5.0,
+    title: 'Great location apartment at great location',
+    isPremium: true,
+    isFavorite: true,
+        previewImage: 'img/apartment-03.jpg',
+    type: 'house',
+        city: {
+      name: 'Paris'
+    }
+  },
+  {
+    id: 4,
+    price: 100,
+    rating: 3.2,
+    title: 'Luxurious & beautiful apartment at great location',
+    isPremium: false,
+    isFavorite: true,
+        previewImage: 'img/apartment-01.jpg',
+    type: 'hotel',
+        city: {
+      name: 'Amsterdam'
+    }
+  },
+];
+Далее создадим новый компонент CardsList для отрисовки наших предложений, этот компонент пригодится в будущем, когда список предложений будет соединен с соответствующей картой.
+
+import type { Offer } from '../../types/types';
+
+import Card from '../card/card';
+
+type CardListProps = {
+    offers: Offer[];
+};
+
+const CardList = ({ offers }: CardListProps): JSX.Element => {
+  return (
+    <div className="cities__places-list places__list tabs__content">
+      {offers.map((offer) => (
+        <Card
+          key={offer.id}
+          {...offer}
+        />
+      ))}
+    </div>
+  );
+};
+Обратите внимание, что передавать пропы в компонент можно при помощи деструктуризации как {...offer}, вместо того, чтобы передавать их по отдельности как id={id} price={price} title={title}...
+Оживляем компонент при помощи пропов
+Моки созданы, компонент списка тоже, теперь пришло время оживить компонент карточки и научить ее реагировать на разные пропы:
+
+Заменим заголовок
+Установим цену
+Высчитаем нужное заполнение рейтинга через пропорцию
+Зададим тип предложения
+Отметим премиальное ли предложение (при помощи условного рендеринга)
+Отметим избранное ли предложение (при помощи установки нужного класса при выполнении условия)
+Зададим ссылку для фото-превью
+Заполним ссылку нужным адресом при помощи уникального идентификатора
+import type { Offer } from '../../types/types';
+
+import { AppRoute } from '../../const';
+
+const STARS_COUNT = 5;
+const MAX_PERCENT_STARS_WIDTH = 100;
+
+const Card = ({
+  id,
+  price,
+  rating,
+  title,
+  isPremium,
+  isFavorite,
+    previewImage,
+  type
+}: Offer): JSX.Element => {
+  return (
+    <article
+      className="cities__card place-card"
+    >
+      {isPremium && (
+        <div className="place-card__mark">
+          <span>Premium</span>
+        </div>
+      )}
+      <div className="cities__image-wrapper place-card__image-wrapper">
+        <a href="#">
+          <img
+            className="place-card__image"
+            src={previewImage}
+            width="260"
+            height="200"
+            alt="Place image"
+          />
+        </a>
+      </div>
+      <div className="place-card__info">
+        <div className="place-card__price-wrapper">
+          <div className="place-card__price">
+            <b className="place-card__price-value">&euro;{price}</b>
+            <span className="place-card__price-text">&#47;&nbsp;night</span>
+          </div>
+          <button
+            className={`place-card__bookmark-button button${isFavorite ? ' place-card__bookmark-button--active' : ''
+            }`}
+            type="button"
+          >
+            <svg className="place-card__bookmark-icon" width="18" height="19">
+              <use xlinkHref="#icon-bookmark"></use>
+            </svg>
+            <span className="visually-hidden">To bookmarks</span>
+          </button>
+        </div>
+        <div className="place-card__rating rating">
+          <div className="place-card__stars rating__stars">
+            <span
+              style={{
+                width: `${(MAX_PERCENT_STARS_WIDTH * rating) / STARS_COUNT}%`,
+              }}
+            >
+            </span>
+            <span className="visually-hidden">Rating</span>
+          </div>
+        </div>
+        <h2 className="place-card__name">
+          <a href={`${AppRoute.Property}/${id}`}>{title}</a>
+        </h2>
+        <p className="place-card__type">{type}</p>
+      </div>
+    </article>
+  );
+};
+Оживляем компонент при помощи состояния
+Далее добавим состояние (state) нашему компоненту списку предложений, теперь он будет хранить id текущей активной карточки при наведении (как мы выяснили ранее это пригодится в следующих заданиях) и null при убирании курсора с карточки.
+
+Для управления событиями в react используют атрибуты с названиями onEventName, как в классическом html, подробнее про события в react можно прочитать в документации.
+
+Итак, создадим состояние для нашего компонента, а так же callback’и, при которых это состояние будет меняться:
+
+import { useState } from 'react';
+
+import type { Offer } from '../../types/types';
+
+import Card from '../card/card';
+
+type CardListProps = {
+    offers: Offer[];
+};
+
+const CardList = ({ offers }: CardListProps): JSX.Element => {
+    // Переменная activeOffer понадобится позже
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [activeOffer, setActiveOffer] = useState<number | null>(null);
+
+  const handleCardMouseMove = (id: number) => {
+    setActiveOffer(id);
+  };
+
+  const handleCardMouseLeave = () => {
+    setActiveOffer(null);
+  };
+
+  return (
+    <div className="cities__places-list places__list tabs__content">
+      {offers.map((offer) => (
+        <Card
+          key={offer.id}
+          {...offer}
+          onMouseMove={handleCardMouseMove}
+          onMouseLeave={handleCardMouseLeave}
+        />
+      ))}
+    </div>
+  );
+};
+Обратите внимание, что состояние компонента меняется через calback, переданный в компонент карточки вниз, это нужно для того, чтобы передавать аргумент с нужным id. Для этого слегка доработаем компонент карточки:
+
+import type { Offer } from '../../types/types';
+
+import { AppRoute, MAX_PERCENT_STARS_WIDTH, STARS_COUNT } from '../../const';
+
+type CardProps = Offer & {
+  onMouseMove: (id: number) => void;
+  onMouseLeave: () => void;
+};
+
+const Card = ({
+  id,
+  price,
+  rating,
+  title,
+  isPremium,
+  isFavorite,
+    previewImage,
+  type,
+  onMouseMove,
+  onMouseLeave,
+}: CardProps): JSX.Element => {
+  const handleMouseMove = () => {
+    onMouseMove(id);
+  };
+
+  return (
+    <article
+      className="cities__card place-card"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={onMouseLeave}
+    >
+      {isPremium && (
+        <div className="place-card__mark">
+          <span>Premium</span>
+        </div>
+      )}
+      <div className="cities__image-wrapper place-card__image-wrapper">
+        <a href="#">
+          <img
+            className="place-card__image"
+            src={previewImage}
+            width="260"
+            height="200"
+            alt="Place image"
+          />
+        </a>
+      </div>
+      <div className="place-card__info">
+        <div className="place-card__price-wrapper">
+          <div className="place-card__price">
+            <b className="place-card__price-value">&euro;{price}</b>
+            <span className="place-card__price-text">&#47;&nbsp;night</span>
+          </div>
+          <button
+            className={`place-card__bookmark-button button${isFavorite ? ' place-card__bookmark-button--active' : ''
+            }`}
+            type="button"
+          >
+            <svg className="place-card__bookmark-icon" width="18" height="19">
+              <use xlinkHref="#icon-bookmark"></use>
+            </svg>
+            <span className="visually-hidden">To bookmarks</span>
+          </button>
+        </div>
+        <div className="place-card__rating rating">
+          <div className="place-card__stars rating__stars">
+            <span
+              style={{
+                width: `${(MAX_PERCENT_STARS_WIDTH * rating) / STARS_COUNT}%`,
+              }}
+            >
+            </span>
+            <span className="visually-hidden">Rating</span>
+          </div>
+        </div>
+        <h2 className="place-card__name">
+          <a href={`${AppRoute.Property}/${id}`}>{title}</a>
+        </h2>
+        <p className="place-card__type">{type}</p>
+      </div>
+    </article>
+  );
+};
+Далее подключим наш созданный компонент CardList к компонентам App и Main (обратите внимание, что свойство offersCount нам больше не нужно, ведь мы можем использовать длину массива наших моковых данных):
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+
+import App from './components/app/app';
+import offers from './mocks/offers';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+
+root.render(
+  <React.StrictMode>
+    <App offers={offers} />
+  </React.StrictMode>,
+);
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import type { Offer } from '../../types/types';
+
+import Main from '../../pages/main/main';
+import Login from '../../pages/login/login';
+import Favorites from '../../pages/favorites/favorites';
+import Property from '../../pages/property/property';
+import NotFound from '../../pages/not-found/not-found';
+import PrivateRoute from '../private-route/private-route';
+import { AppRoute, AuthorizationStatus } from '../../const';
+
+type AppProps = {
+  offers: Offer[]
+}
+
+const App = ({ offers }: AppProps): JSX.Element => (
+  <BrowserRouter>
+    <Routes>
+      <Route index element={<Main offers={offers} />}/>
+      <Route path={AppRoute.Login} element={<Login />} />
+      <Route path={`${AppRoute.Property}/:id`} element={<Property />} />
+      <Route path={AppRoute.Favorites}
+        element={
+          <PrivateRoute
+            authorizationStatus={AuthorizationStatus.NoAuth}
+          >
+            <Favorites />
+          </PrivateRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </BrowserRouter>
+);
+import type { Offer } from '../../types/types';
+
+import CardList from '../../components/card-list/card-list';
+
+type MainProps = {
+  offers: Offer[]
+}
+
+const Main = ({ offers }: MainProps): JSX.Element => (
+  <div className="page page--gray page--main">
+        ...
+            <CardList offers={offers} />  
+        ... 
+  </div>
+);
+Для закрепления знаний добавим новый компонент формы для отправки отзыва на странице объявления, добавив ему состояние текущего введенного отзыва из текстового поля и выбранного рейтинга:
+
+import type { ChangeEvent } from 'react';
+
+import { Fragment, useState } from 'react';
+
+import { STARS_COUNT } from '../../const';
+
+const Form = () => {
+    const [text, setText] = useState<string>('');
+  const [rating, setRating] = useState<number | null>(null);
+
+  const handleTextareaChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRating(Number(e.target.value));
+  };
+
+  return (
+    <form className="reviews__form form" action="#" method="post">
+      <label className="reviews__label form__label" htmlFor="review">
+                Your review
+      </label>
+      <div className="reviews__rating-form form__rating">
+       {Array.from({ length: STARS_COUNT}, (_,i) => (
+          <Fragment key={`Star ${STARS_COUNT - i}`}>
+            <input
+              className="form__rating-input visually-hidden"
+              name="rating"
+              defaultValue={STARS_COUNT - i}
+              id={`${STARS_COUNT - i}-stars`}
+              type="radio"
+              checked={STARS_COUNT - i === rating}
+              onChange={handleInputChange}
+            />
+            <label
+              htmlFor={`${STARS_COUNT - i}-stars`}
+              className="reviews__rating-label form__rating-label"
+            >
+              <svg className="form__star-image" width={37} height={33}>
+                <use xlinkHref="#icon-star" />
+              </svg>
+            </label>
+          </Fragment>
+        ))}
+      </div>
+      <textarea
+        className="reviews__textarea form__textarea"
+        id="review">
+        name="review"
+        placeholder="Tell how was your stay, what you like and what can be improved"
+        value={review}
+        onChange={handleChange}
+      />
+      <div className="reviews__button-wrapper">
+        <p className="reviews__help">
+            To submit review please make sure to set{' '}
+          <span className="reviews__star">rating</span> and describe your stay
+            with at least <b className="reviews__text-amount">50 characters</b>.
+        </p>
+        <button
+          className="reviews__submit form__submit button"
+          type="submit"
+          disabled
+        >
+            Submit
+        </button>
+      </div>
+    </form>
+  );
+};
+Обратите внимание, что значения в textfield и input задаются и обрабатываются через state, такие компоненты называются контролируемыми, подробнее в можно узнать в react документации
+
+Далее проверим, что состояние задается корректно в обоих компонентах, для этого используем браузерное расширение react-dev-tools:
+
+Переиспользуем компоненты
+Во второй части задания нам нужно вставить уже знакомую нам карточку предложения на страницу избранных предложений. Давайте внимательно посмотрим на разметку карточки на двух страницах и найдем отличия:
+
+<article class="cities__card place-card">
+  <div class="cities__image-wrapper place-card__image-wrapper">
+        ...
+    </div>
+</article>
+<article class="favorites__card place-card">
+  <div class="favorites__image-wrapper place-card__image-wrapper">
+        ...
+    </div>
+</article>
+Заметим, что отличие лишь в className:
+
+citiescard → favoritescard
+citiesimage-wrapper → favoritesimage-wrapper
+Зададим дополнительный проп place для нашего компонента
+
+import type { Offer } from '../../types/types';
+
+import { AppRoute } from '../../const';
+import { getStarsWidth } from '../../utils';
+
+type CardProps = Offer & {
+  onMouseMove?: (id: number) => void;
+  onMouseLeave?: () => void;
+  place?: 'cities' | 'favorites'
+};
+
+const Card = ({
+  id,
+  price,
+  rating,
+  title,
+  isPremium,
+  isFavorite,
+  type,
+  place = 'cities',
+  onMouseMove = () => void 0,
+  onMouseLeave = () => void 0,
+}: CardProps): JSX.Element => {
+  const handleMouseMove = () => {
+    onMouseMove(id);
+  };
+
+  return (
+    <article
+      className={`${place}__card place-card`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className={`${place}__image-wrapper place-card__image-wrapper`}>
+        ...
+      </div>
+    </article>
+  );
+};
+Обратите внимание, мы задали параметры по умолчанию для некоторых пропов, это позволяет более удобно и гибко работать с компонентами, например, на странице предложения нам не нужны обработчики мыши, которые мы создавали ранее, но они нужны для корректной работы компонента, поэтому перекроем их функцией-пустышкой.
+
+Теперь мы можем воспользоваться универсальным компонентом, однако, перед этим предложения нужно сгруппировать, так как на странице избранного каждое предложение относится к своему городу. Напишем вспомогательную функцию:
+
+const groupedOffersByCity = offers.reduce<{ [key: string ]: Offer[] }>((acc, curr) => {
+    if (curr.isFavorite) {
+      const city = curr.city.name;
+
+      if (!(city in acc)) {
+        acc[city] = [];
+      }
+
+      acc[city].push(curr);
+    }
+
+    return acc;
+  }, {});
+А теперь вставим сгруппированные предложения на страницу, не забывая про новый prop у карточки:
+
+<ul className="favorites__list">
+  {Object.entries(groupedOffersByCity).map(([city, groupedOffers]) => (
+    <li className="favorites__locations-items" key={city}>
+      <div className="favorites__locations locations locations--current">
+        <div className="locations__item">
+          <a className="locations__item-link" href="#">
+            <span>{city}</span>
+          </a>
+        </div>
+      </div>
+      <div className="favorites__places">
+        {groupedOffers.map((offer) => <Card key={offer.id} {...offer} place="favorites" />)}
+      </div>
+    </li>
+  ))}
+</ul>

@@ -1146,3 +1146,316 @@ const groupedOffersByCity = offers.reduce<{ [key: string ]: Offer[] }>((acc, cur
     </li>
   ))}
 </ul>
+
+### 5.17. Больше подробностей (часть 1)
+
+six-cities
+Задача
+Пришло время подключить к проекту настоящую карту и отобразить на ней предложения по аренде в виде маркеров. В качестве карт мы воспользуемся вариантом от OpenStreetMap, а для удобства взаимодействия с картами пакетом — leaflet.
+
+Установите пакет leaflet в основные зависимости (dependencies) и пакет @types/leaflet в зависимости для разработки (devDependencies).
+
+Добавьте в ранее подготовленные тестовые данные координаты объектов для аренды. В качестве координат используйте пары (широта, долгота):
+
+52.3909553943508, 4.85309666406198
+52.3609553943508, 4.85309666406198
+52.3909553943508, 4.929309666406198
+52.3809553943508, 4.939309666406198
+Все предложения по аренде приведены для города Амстердам.
+
+Создайте новый компонент «Карта» и воспользуйтесь в нём пакетом leaflet для отображения карты. Все необходимые данные компонент должен принимать через props. Обратите внимание, карта отрисовывается в контейнере .cities__map. Детали подключения рассмотрены в демонстрации «Внешние библиотеки. Подключение leaflet» и в «Подключение leaflet (TypeScript)»
+
+Подключите компонент «Карта» к компоненту «Главная страница». Отобразите на карте все предложения (в виде маркеров) по аренде в Амстердаме.
+
+### Больше подробностей (часть 1)
+
+Архив проекта
+
+В данном задании вы научитесь работать со сторонней библиотекой в экосистеме react - с библиотекой по реализации карт leaflet.
+
+Установка зависимостей
+Для начала нужно установить библиотеку вместе с типами к ней в наш проект:
+
+npm i leaflet --save
+npm i @types/leaflet --save-dev
+Расширение схемы предложений
+Далее нужно доработать структуру предложений об аренде, добавив в них координаты соответствующего жилья, а так же добавим новый тип City, который будет содержать название текущего города и его координаты:
+
+export const cities = ['Paris', 'Cologne', 'Brussels', 'Amsterdam', 'Hamburg', 'Dusseldorf'] as const;
+import { cities } from '../const';
+
+export type CityName = typeof cities[number];
+
+export type Location = {
+    latitude: number;
+    longitude: number;
+    zoom: number;
+}
+
+export type City = {
+    name: CityName;
+    location: Location;
+}
+
+export type Offer = {
+    id: number;
+    price: number;
+    rating: number;
+    title: string;
+    isPremium: boolean;
+    isFavorite: boolean;
+    location: Location;
+    previewImage: string;
+    type: 'apartment' | 'room' | 'house' | 'hotel';
+    city: {
+        name: CityName;
+    };
+}
+Обратите внимание, что список городов, исходя из ТЗ, статичен, поэтому мы можем явно сказать какими могут быть имена городов, указав это в соответствующем типе
+
+После доработки типов, укажем координаты в наших моках, за координаты города возьмем координаты первого предложения:
+
+import type { City } from '../types/types';
+
+const city: City = {
+  name: 'Amsterdam',
+  location: {
+    latitude: 52.3909553943508,
+    longitude: 4.85309666406198,
+    zoom: 10
+  }
+};
+import type { Offer } from '../types/types';
+
+const offers: Offer[] = [
+  {
+    id: 1,
+    price: 200,
+    rating: 4.4,
+    title: 'Beautiful & luxurious apartment at great location',
+    isPremium: true,
+    isFavorite: false,
+    location: {
+      latitude: 52.3909553943508,
+      longitude: 4.85309666406198,
+      zoom: 1
+    },
+    previewImage: 'img/apartment-01.jpg',
+    type: 'apartment',
+    city: {
+      name: 'Amsterdam'
+    }
+  },
+  {
+    id: 2,
+    price: 20,
+    rating: 3.4,
+    title: 'A apartment at great location beautiful',
+    isPremium: false,
+    isFavorite: false,
+    location: {
+      latitude: 52.369553943508,
+      longitude: 4.85309666406198,
+      zoom: 1
+    },
+    previewImage: 'img/apartment-02.jpg',
+    type: 'room',
+    city: {
+      name: 'Paris'
+    }
+  },
+  {
+    id: 3,
+    price: 100,
+    rating: 5.0,
+    title: 'Great location apartment at great location',
+    isPremium: true,
+    isFavorite: true,
+    location: {
+      latitude: 52.3909553943508,
+      longitude: 4.929309666406198,
+      zoom: 1
+    },
+    previewImage: 'img/apartment-03.jpg',
+    type: 'house',
+    city: {
+      name: 'Paris'
+    }
+  },
+  {
+    id: 4,
+    price: 100,
+    rating: 3.2,
+    title: 'Luxurious & beautiful apartment at great location',
+    isPremium: false,
+    isFavorite: true,
+    location: {
+      latitude: 52.3809553943508,
+      longitude: 4.939309666406198,
+      zoom: 1
+    },
+    previewImage: 'img/apartment-01.jpg',
+    type: 'hotel',
+    city: {
+      name: 'Amsterdam'
+    }
+  },
+    ];
+Создание компонента карты
+Когда структура предложений обновлена координатами, можно приступить к созданию компонента карты. Создадим компонент map.tsx и дополнительный хук useMap.ts, подробнее про создание компонента и хука можно узнать в демонстрации
+
+import { useEffect, useState, useRef, MutableRefObject } from 'react';
+import { Map, TileLayer } from 'leaflet';
+
+import type { City } from '../types/types';
+
+const useMap = (
+  mapRef: MutableRefObject<HTMLElement | null>,
+  city: City
+): Map | null => {
+  const [map, setMap] = useState<Map | null>(null);
+  const isRenderedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (mapRef.current !== null && !isRenderedRef.current) {
+      const instance = new Map(mapRef.current, {
+        center: {
+          lat: city.location.latitude,
+          lng: city.location.longitude,
+        },
+        zoom: city.location.zoom,
+      });
+
+      const layer = new TileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        {
+          attribution:
+                        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      );
+
+      instance.addLayer(layer);
+
+      setMap(instance);
+      isRenderedRef.current = true;
+    }
+
+  }, [mapRef, city]);
+
+  return map;
+};
+import {useRef, useEffect} from 'react';
+import { Icon, Marker } from 'leaflet';
+
+import type { City, Location } from '../../types/types';
+
+import useMap from '../../hooks/useMap';
+
+import 'leaflet/dist/leaflet.css';
+
+const URL_MARKER_DEFAULT = 'img/pin.svg';
+
+const defaultCustomIcon = new Icon({
+  iconUrl: URL_MARKER_DEFAULT,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
+});
+
+type MapProps = {
+  city: City;
+  locations: Location[];
+};
+
+const Map = ({ city, locations }: MapProps): JSX.Element => {
+  const mapRef = useRef(null);
+  const map = useMap(mapRef, city);
+
+  useEffect(() => {
+    if (map) {
+      locations.forEach(({ latitude: lat, longitude: lng }) => {
+        const marker = new Marker({
+          lat,
+          lng
+        });
+
+        marker
+          .setIcon(defaultCustomIcon)
+          .addTo(map);
+      });
+    }
+  }, [map, locations]);
+
+  return <section className="cities__map map" ref={mapRef} />;
+};
+Далее вставляем наш компонент в компонент главной страницы Main.tsx, передавая данные через props, начиная с точки входа нашего приложения
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+
+import App from './components/app/app';
+import city from './mocks/city';
+import offers from './mocks/offers';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+
+root.render(
+  <React.StrictMode>
+    <App city={city} offers={offers} />
+  </React.StrictMode>,
+);
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import type { City, Offer } from '../../types/types';
+
+import Main from '../../pages/main/main';
+import Login from '../../pages/login/login';
+import Favorites from '../../pages/favorites/favorites';
+import Property from '../../pages/property/property';
+import NotFound from '../../pages/not-found/not-found';
+import PrivateRoute from '../private-route/private-route';
+import { AppRoute, AuthorizationStatus } from '../../const';
+
+type AppProps = {
+  city: City;
+  offers: Offer[];
+};
+
+const App = ({ city, offers }: AppProps): JSX.Element => (
+  <BrowserRouter>
+    <Routes>
+      <Route index element={<Main city={city} offers={offers} />} />
+      <Route path={AppRoute.Login} element={<Login />} />
+      <Route path={`${AppRoute.Property}/:id`} element={<Property />} />
+      <Route
+        path={AppRoute.Favorites}
+        element={
+          <PrivateRoute authorizationStatus={AuthorizationStatus.NoAuth}>
+            <Favorites />
+          </PrivateRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </BrowserRouter>
+);
+import type { City, Offer } from '../../types/types';
+
+import Map from '../../components/map/map';
+
+type MainProps = {
+  city: City;
+  offers: Offer[];
+}
+
+const Main = ({ city, offers }: MainProps): JSX.Element => (
+  <div className="page page--gray page--main">
+        ...
+            <Map locations={offers.map((offer) => offer.location)} city={city} />
+        ... 
+  </div>
+);
+Обратите внимание, что компоненту карты совершенно не нужны все данные о предложении, а только лишь координаты, поэтому передаем только свойство location конкретного предложения
+
+Проверяем, что компонент карты отображается на главной странице вместе с предложениями и с ним можно взаимодействовать:

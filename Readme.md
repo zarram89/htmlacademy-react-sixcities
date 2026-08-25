@@ -1459,3 +1459,416 @@ const Main = ({ city, offers }: MainProps): JSX.Element => (
 Обратите внимание, что компоненту карты совершенно не нужны все данные о предложении, а только лишь координаты, поэтому передаем только свойство location конкретного предложения
 
 Проверяем, что компонент карты отображается на главной странице вместе с предложениями и с ним можно взаимодействовать:
+
+### 6.8. Контроль и ограничения (часть 1)
+
+В этом задании мы на практике познакомимся с библиотекой Redux. Она предназначена для управления состоянием приложения. Мы создадим глобальное хранилище для хранения общего состояния приложения и на практике увидим, как Redux упрощает управление состоянием.
+
+Для работы с Redux мы воспользуемся пакетами @reduxjs/toolkit (Redux Toolkit) и react-redux. Первый пакет упрощает работу с Redux, а второй позволяет использовать Redux вместе с React. Оба пакета уже установлены, требуется только подключить их в нужный модуль.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+six-cities
+Создайте новый файл для описания редьюсера (например, reducer.ts). Опишите в нём:
+
+Объект начального состояния: город (используется для отбора списка предложений в определённом городе) и список предложений по аренде.
+
+Функцию-редьюсер. Она принимает в качестве параметров текущий state и действие (action). Результатом выполнения редьюсера станет новое состояние. Обратите внимание, для именования функций-редьюсеров применяются существительные.
+
+Создайте новый файл для описания действий (например, action.ts) и опишите в нём список действий, на основании которых формируется новый state. На данном этапе нам потребуется несколько действий: изменение города и заполнение списка предложений по аренде. Действие для заполнения списка предложений должно поместить в хранилище все предложения по аренде. Пока используем тестовые данные.
+
+Инициализируйте (например, в файле src/store/index.ts) новое хранилище с помощью функции configureStore из пакета @reduxjs/toolkit. Оберните основной компонент приложения (App) в <Provider> из пакета react-redux. Через props передайте ему ссылку на созданное хранилище.
+
+Напишите код для получения списка предложений по аренде в соответствии с выбранным городом.
+
+Создайте новый компонент «Список городов» (если ещё не создали). Компонент получает все необходимые данные через props. Список городов статичен и описан в техническом задании.
+
+Подключите компонент «Список городов» к приложению. При выборе города выполняется отрисовка предложений по аренде в соответствии с выбранным городом. Не забудьте обновлять заголовок с количеством предложений, доступных для выбранного города. Например: 312 places to stay in Amsterdam. Не забудьте, что все отрисованные предложения, соответствующие отбору, также должны быть отрисованы на карте в виде маркеров. После загрузки приложения фильтром по умолчанию становится город Paris.
+
+### Контроль и ограничения (часть 1)
+Архив проекта
+
+В данном задании вы научитесь управлять глобальным состоянием при помощи библиотеки redux.
+
+Создаём наш первый reducer вместе с action
+Для начала определимся с исходным состоянием нашего приложения — активный город (исходя из ТЗ) и массив предложений. Изначально список предложений пуст, поскольку будет приходить с сервера, однако список городов известен заранее, поэтому выставляем активный город сразу — это Париж. Помимо названия города потребуются и его координаты, чтобы установить карту в нужную точку:
+
+import { cities } from '../const';
+
+export type CityName = typeof cities[number];
+
+export type Location = {
+    latitude: number;
+    longitude: number;
+    zoom: number
+}
+
+export type City = {
+    name: CityName,
+    location: Location
+}
+import { Location, CityName } from './types/types';
+
+export const cities = ['Paris', 'Cologne', 'Brussels', 'Amsterdam', 'Hamburg', 'Dusseldorf'] as const;
+
+export const CityLocation: { [key in CityName]: Location } = {
+  'Paris': {
+    latitude: 48.85661,
+    longitude: 2.351499,
+    zoom: 13
+  },
+  'Cologne': {
+    latitude: 50.938361,
+    longitude: 6.959974,
+    zoom: 13
+  },
+  'Brussels': {
+    latitude: 50.846557,
+    longitude: 4.351697,
+    zoom: 13
+  },
+  'Amsterdam': {
+    latitude: 52.37454,
+    longitude: 4.897976,
+    zoom: 13
+  },
+  'Hamburg': {
+    latitude: 53.550341,
+    longitude: 10.000654,
+    zoom: 13
+  },
+  'Dusseldorf': {
+    latitude: 51.225402,
+    longitude: 6.776314,
+    zoom: 13
+  },
+};
+import type { City, Offer } from '../types/types';
+
+import { cities, CityLocation} from '../const';
+
+type State = {
+    city: City,
+    offers: Offer[]
+}
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]]
+  },
+  offers: []
+};
+Теперь пора определиться с действиями (action), которые будут изменять наш store:
+
+Записать предложения
+Установить активный город
+Для данного задания этого будет достаточно, в будущем мы добавим еще несколько действий. Создаём нужные action:
+
+import { createAction } from '@reduxjs/toolkit';
+
+import type { CityName, Offer } from '../types/types';
+
+export const Action = {
+  SET_CITY: 'city/set',
+  SET_OFFERS: 'offers/set'
+};
+
+export const setCity = createAction<CityName>(Action.SET_CITY);
+export const setOffers = createAction<Offer[]>(Action.SET_OFFERS);
+Теперь создадим наш reducer, передав туда исходное состояние хранилища, и нужные action:
+
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer } from '../types/types';
+
+import { setCity, setOffers } from './action';
+import { cities, CityLocation} from '../const';
+
+type State = {
+    city: City,
+    offers: Offer[]
+}
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]]
+  },
+  offers: []
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    .addCase(setCity, (state, action) => {
+      state.city = {
+        name: action.payload,
+        location: CityLocation[action.payload]
+      };
+    })
+    .addCase(setOffers, (state, action) => {
+      state.offers = action.payload;
+    });
+});
+После того, как мы описали все взаимодействия с нашим хранилищем, настало время его создать, а затем сразу установить моковые предложения в store, словно мы загрузили их с сервера:
+
+import { configureStore } from '@reduxjs/toolkit';
+
+import { reducer } from './reducer';
+import { setOffers } from './action';
+import offers from '../mocks/offers';
+
+const store = configureStore({
+  reducer
+});
+
+store.dispatch(setOffers(offers));
+Также оборачиваем наше приложение в Provider, чтобы компоненты могли получать данные из хранилища:
+
+import ReactDOM from 'react-dom/client';
+import { Provider } from 'react-redux';
+
+import App from './components/app/app';
+import store from './store';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+
+root.render(
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+А также создаем дополнительные хуки, при помощи которых наши компоненты будут получать нужные данные из хранилища:
+
+import store from '../store';
+
+export type State = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+import type { State, AppDispatch } from '../types/state';
+
+import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
+
+export const useAppDispatch = () => useDispatch<AppDispatch>();
+export const useAppSelector: TypedUseSelectorHook<State> = useSelector;
+Такие обёртки нужны для того, чтобы каждый раз не типизировать возвращаемое значение из хранилища руками.
+
+Дружим компоненты с хранилищем
+Для начала нам нужно создать компонент списка навигации по городам. При клике на каждый из городов будет меняться активный город, список предложений будет фильтроваться в соответствии с выбранным городом. Создаём компонент для элемента такого списка, он будет принимать название города и признак того, что он является активным:
+
+import type { CityName } from '../../types/types';
+
+type CityProps = {
+    name: CityName,
+    isActive: boolean;
+}
+
+const City = ({ name, active }: CityProps): JSX.Element => {
+  return (
+    <li className="locations__item" onClick={handleClick}>
+      <a className={`locations__item-link tabs__item${isActive? ' tabs__item--active' : ''}`} href="#">
+        <span>{name}</span>
+      </a>
+    </li>
+  );
+};
+Теперь создаём сам компонент списка городов. Этот компонент будет подключён к хранилищу, чтобы иметь представление о текущем активном городе:
+
+import type { CityName } from '../../types/types';
+
+import { useAppSelector } from '../../hooks';
+import { setCity } from '../../store/action';
+import City from '../city/city';
+import { cities } from '../../const';
+
+const CitiesList = (): JSX.Element => {
+  const activeCity = useAppSelector((state) => state.city);
+
+  return (
+    <ul className="locations__list tabs__list">
+      {cities.map((city) => (
+        <City key={city} name={city} isActive={city === activeCity.name} />
+      ))}
+    </ul>
+  );
+};
+Активный город получен, список создан, однако активный город следует менять по клику на компонент City. Добавим нужный обработчик, в нем добавим логику взаимодействия с нашим хранилищем через dispatch. Используем уже знакомый нам приём по передаче callback с логикой дочернему компоненту:
+
+import type { CityName } from '../../types/types';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setCity } from '../../store/action';
+import City from '../city/city';
+import { cities } from '../../const';
+
+const CitiesList = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const activeCity = useAppSelector((state) => state.city);
+
+  const handleClick = (name: CityName) => {
+    dispatch(setCity(name));
+  };
+
+  return (
+    <ul className="locations__list tabs__list">
+      {cities.map((city) => (
+        <City key={city} name={city} isActive={city === activeCity.name} onClick={handleClick} />
+      ))}
+    </ul>
+  );
+};
+import type { CityName } from '../../types/types';
+
+type CityProps = {
+    name: CityName,
+    active: boolean;
+    onClick: (name: CityName) => void;
+}
+
+const City = ({ name, active, onClick }: CityProps): JSX.Element => {
+  const handleClick = () => {
+    onClick(name);
+  };
+
+  return (
+    <li className="locations__item" onClick={handleClick}>
+      <a className={`locations__item-link tabs__item${active ? ' tabs__item--active' : ''}`} href="#">
+        <span>{name}</span>
+      </a>
+    </li>
+  );
+};
+Список готов, однако нам следует прокачать еще один наш компонент — CardList. Он будет включать в себя список активных предложений, а также карту. Перенесём компонент карты внутрь списка (поскольку оба компонента завязаны на данные из хранилища и при этом лежат рядом, лучше перенести их в один большой компонент, у которого будет доступ к хранилищу, передавая нужные данные через пропы), а также воспользуемся уже привычным нам useAppSelector для получения активного города и фильтрации предложений:
+
+import { useState } from 'react';
+
+import { useAppSelector } from '../../hooks';
+
+import Card from '../card/card';
+import Map from '../map/map';
+
+const CardList = (): JSX.Element => {
+  const activeCity = useAppSelector((state) => state.city);
+  const offers = useAppSelector((state) => state.offers.filter((offer) => offer.city.name === state.city.name));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [activeOffer, setActiveOffer] = useState<number | null>(null);
+
+  const handleMouseMove = (id: number) => {
+    setActiveOffer(id);
+  };
+
+  const handleMouseLeave = () => {
+    setActiveOffer(null);
+  };
+
+  return (
+    <>
+      <section className="cities__places places">
+        <h2 className="visually-hidden">Places</h2>
+        <b className="places__found">{offers.length} places to stay in {activeCity.name}</b>
+        ...
+        <div className="cities__places-list places__list tabs__content">
+          {offers.map((offer) => (
+            <Card
+              key={offer.id}
+              {...offer}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+            />
+          ))}
+        </div>
+      </section>
+      <div className="cities__right-section">
+        <Map locations={offers.map((offer) => offer.location)} city={activeCity} />
+      </div>
+    </>
+  );
+};
+Далее следует слегка обновить компонент Map, при смене города карта должна менять локацию, удалять старые метки и рисовать новые, в этом нам помогут несколько методов leaflet (setView — для установки нужных координат и removeLayer — для удаления старых меток), а так же clean up функция внутри useEffect:
+
+import { useRef, useEffect } from 'react';
+import { Icon, Marker } from 'leaflet';
+
+import type { City, Location } from '../../types/types';
+
+import useMap from '../../hooks/useMap';
+import { URL_MARKER_DEFAULT, CityLocation } from '../../const';
+
+import 'leaflet/dist/leaflet.css';
+
+type MapProps = {
+  city: City;
+  locations: Location[];
+  place?: 'cities' | 'property';
+};
+
+const defaultCustomIcon = new Icon({
+  iconUrl: URL_MARKER_DEFAULT,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
+});
+
+const Map = ({ city, locations, place = 'cities' }: MapProps): JSX.Element => {
+  const mapRef = useRef(null);
+  const map = useMap(mapRef, city);
+
+  useEffect(() => {
+    const markers: Marker[] = [];
+
+    if (map) {
+      locations.forEach(({ latitude: lat, longitude: lng }) => {
+        const marker = new Marker({
+          lat,
+          lng
+        });
+
+        marker
+          .setIcon(defaultCustomIcon)
+          .addTo(map);
+
+        markers.push(marker);
+      });
+
+            const { latitude: lat, longitude: lng,} = CityLocation[city.name];
+      map.setView({ lat, lng });
+    }
+
+    return () => {
+      if (map) {
+        markers.forEach((marker) => {
+          map.removeLayer(marker);
+        });
+      }
+    };
+  }, [map, city, locations]);
+
+  return <section className={`${place}__map map`} ref={mapRef} />;
+};
+Подключим обновленные компоненты к главной странице нашего приложения:
+
+import CardList from '../../components/card-list/card-list';
+import CitiesList from '../../components/cities-list/cities-list';
+
+const Main = (): JSX.Element => (
+  <div className="page page--gray page--main">
+    ...
+    <main className="page__main page__main--index">
+      <h1 className="visually-hidden">Cities</h1>
+      <div className="tabs">
+        <section className="locations container">
+          <CitiesList />
+        </section>
+      </div>
+      <div className="cities">
+        <div className="cities__places-container container">
+          <CardList />
+        </div>
+      </div>
+    </main>
+  </div>
+);
+Обратите внимание, что многие наши компоненты перестали принимать значения через пропы, потому что они подключены к store и берут данные оттуда, таким образом мы избегаем такой проблемы как prop drilling.
+
+Проверим работоспособность наших компонентов, убедимся, что данные в хранилище меняются корректно:

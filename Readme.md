@@ -1872,3 +1872,424 @@ const Main = (): JSX.Element => (
 Обратите внимание, что многие наши компоненты перестали принимать значения через пропы, потому что они подключены к store и берут данные оттуда, таким образом мы избегаем такой проблемы как prop drilling.
 
 Проверим работоспособность наших компонентов, убедимся, что данные в хранилище меняются корректно:
+
+### 6.9. Контроль и ограничения (часть 2)
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+six-cities
+В этом задании мы полностью завершим разработку списка предложений по аренде, добавив две новые функции: сортировку предложений и подсветку маркеров на карте. При наведении на карточку предложения соответствующий маркер на карте должен подсвечиваться оранжевым цветом. Оранжевый маркер вы можете найти в img/pin-active.svg директории public.
+
+Задача
+Создайте новый компонент «Варианты сортировки» и подключите его к главной странице. В качестве значения по умолчанию для сортировки выставляется «Popular» — карточки с предложениями отображаются в исходном порядке (полученном с сервера или из тестовых данных).
+
+Запрограммируйте все варианты для сортировки карточек с предложениями:
+
+Price: low to high. От дешёвых к дорогим.
+Price: high to low. От дорогих к дешёвым.
+Top rated first. От высокого рейтинга к низкому.
+Реализуйте поведение, когда при наведении на карточку предложения на карте оранжевым цветом подсвечивается соответствующий маркер.
+
+### Контроль и ограничения (часть 2)
+
+Добавляем компонент сортировки в проект
+Сразу можно заметить, что сортировка реализована в виде меню, соответственно оно может открываться и закрываться, создаем компонент SortingList с состоянием isOpened:
+
+import { useState } from 'react';
+
+const SortingList = (): JSX.Element => {
+  const [isOpened, setIsOpened] = useState<boolean>(false);
+
+  const handleToggleButtonClick= () => {
+    setIsOpened(!isOpened);
+  };
+
+  return (
+    <form className="places__sorting" action="#" method="get">
+      <span className="places__sorting-caption">Sort by</span>
+      <span className="places__sorting-type" tabIndex={0} onClick={handleToggleButtonClick}>
+                  Popular
+        <svg className="places__sorting-arrow" width="7" height="4">
+          <use xlinkHref="#icon-arrow-select"></use>
+        </svg>
+      </span>
+      {isOpened && (
+        <ul className="places__options places__options--custom places__options--opened">
+          <li
+            className="places__option places__option--active"
+            tabIndex={0}
+          >
+                    Popular
+          </li>
+          <li className="places__option" tabIndex={0}>
+                    Price: low to high
+          </li>
+          <li className="places__option" tabIndex={0}>
+                    Price: high to low
+          </li>
+          <li className="places__option" tabIndex={0}>
+                    Top rated first
+          </li>
+        </ul>)}
+    </form>
+  );
+};
+Заметим, что пункты меню повторяются — их можно создать динамически, создадим соответствующий Enum:
+
+export enum Sorting {
+  Popular = 'Popular',
+  PriceIncrease= 'Price: low to high',
+  PriceDecrease= 'Price: high to low',
+  TopRated = 'Top rated first',
+}
+export type SortName= keyof typeof Sorting;
+Поскольку каждый тип сортировки должен сортировать по-своему, то создадим соответствующие функции:
+
+export const Comparator: {
+  [key in SortName]: (a: Offer, b: Offer) => number
+} = {
+  POPULAR: () => 0,
+  PRICE_INCREASE: (a, b) => a.price - b.price,
+  PRICE_DECREASE: (a, b) => b.price - a.price,
+  TOP_RATED: (a, b) => b.rating - a.rating,
+};
+Подробнее про работу сортировки в js можно узнать на MDN
+
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { Sorting } from '../../const';
+
+const SortingList = (): JSX.Element => {
+  const [isOpened, setIsOpened] = useState<boolean>(false);
+
+  const handleToggleButtonClick = () => {
+    setIsOpened(!isOpened);
+  };
+
+  const handleSortItemClick = () => {
+    setIsOpened(false);
+  };
+
+  return (
+    <form className="places__sorting" action="#" method="get">
+      <span className="places__sorting-caption">Sort by</span>
+      <span
+        className="places__sorting-type"
+        tabIndex={0}
+        onClick={handleToggleButtonClick}
+      >
+            Popular
+        <svg className="places__sorting-arrow" width="7" height="4">
+          <use xlinkHref="#icon-arrow-select"></use>
+        </svg>
+      </span>
+      {isOpened && (
+        <ul className="places__options places__options--custom places__options--opened">
+          {(Object.entries(Sorting) as [SortName, Sorting][]).map(([name, title]) => (
+            <li
+              key={name}
+              className="places__option"
+              onClick={handleSortItemClick}
+              tabIndex={0}
+            >
+              {title}
+            </li>
+          ))}
+        </ul>
+      )}
+    </form>
+  );
+};
+Мапинг сортировок готов, однако остаётся где-то хранить текущий активный тип сортировки и как-то его менять, заведём новое поле в нашем store и соответствующий action:
+
+import { createAction } from '@reduxjs/toolkit';
+
+import type { CityName, Offer, SortName } from '../types/types';
+
+export const Action = {
+  SET_CITY: 'city/set',
+  SET_OFFERS: 'offers/set',
+  SET_SORTING: 'sorting/set'
+};
+
+export const setCity = createAction<CityName>(Action.SET_CITY);
+export const setOffers = createAction<Offer[]>(Action.SET_OFFERS);
+export const setSorting = createAction<SortName>(Action.SET_SORTING);
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer, SortName } from '../types/types';
+
+import { setCity, setOffers, setSorting } from './action';
+import { cities, CityCenter, Sorting } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  sorting: SortName;
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityCenter[cities[0]],
+  },
+  offers: [],
+  sorting: Sorting.Popular,
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    .addCase(setCity, (state, action) => {
+      state.city = {
+        name: action.payload,
+        location: CityCenter[action.payload],
+      };
+    })
+    .addCase(setOffers, (state, action) => {
+      state.offers = action.payload;
+    })
+    .addCase(setSorting, (state, action) => {
+      state.sorting = action.payload;
+    });
+});
+Далее стоит определить, каким образом SortingList будет получать доступ в store — через props родителя или через уже знакомые нам хуки useAppSelector. Если учитывать, что родительский компонент CardList уже подключен к store, то можно передавать данные в компонент SortingList через props — активную сортировку activeSorting (для назначения активных классов и заголовок активного типа) и функцию callback по смене сортировки onSortingChange:
+
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setSorting } from '../../store/action';
+import { Comparator} from '../../const';
+import Card from '../card/card';
+import Map from '../map/map';
+import Sorting from '../sorting/sorting';
+
+const CardList = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const activeSorting = useAppSelector((state) => state.sorting);
+  const activeCity = useAppSelector((state) => state.city);
+  const offers = useAppSelector((state) => state.offers.filter((offer) => offer.city.name === state.city.name).sort(Comparator[state.sorting]));
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [activeOffer, setActiveOffer] = useState<number | null>(null);
+
+  const handleCardMouseMove = (id: number) => {
+    setActiveOffer(id);
+  };
+
+  const handleCardMouseLeave = () => {
+    setActiveOffer(null);
+  };
+
+  const onSortingChange = (name: SortName) => {
+    dispatch(setSorting(name));
+  };
+
+  return (
+    <>
+      <section className="cities__places places">
+        <h2 className="visually-hidden">Places</h2>
+        <b className="places__found">{offers.length} places to stay in {activeCity.name}</b>
+        <Sorting onChange={onSortingChange} activeSorting={activeSorting} />
+        <div className="cities__places-list places__list tabs__content">
+          {offers.map((offer) => (
+            <Card
+              key={offer.id}
+              {...offer}
+              onMouseEnter={handleCardMouseEnter}
+              onMouseLeave={handleCardMouseLeave}
+            />
+          ))}
+        </div>
+      </section>
+      <div className="cities__right-section">
+        <Map locations={offers.map((offer) => offer.location)} city={activeCity} />
+      </div>
+    </>
+  );
+};
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { Sorting } from '../../const';
+
+type SortingListProps = {
+    onChange: (name: SortName) => void;
+    activeSorting: SortName;
+};
+
+const SortingList = ({
+  onChange,
+  activeSorting,
+}: SortingListProps): JSX.Element => {
+  const [isOpened, setIsOpened] = useState<boolean>(false);
+
+  const handleToggleButtonClick = () => {
+    setIsOpened(!isOpened);
+  };
+
+  const handleSortItemClick = (name: SortName) => {
+    setIsOpened(false);
+    onChange(name);
+  };
+
+  return (
+    <form className="places__sorting" action="#" method="get">
+      <span className="places__sorting-caption">Sort by</span>
+      <span
+        className="places__sorting-type"
+        tabIndex={0}
+        onClick={handleToggleButtonClick}
+      >
+        {Sorting[activeSorting]}
+        <svg className="places__sorting-arrow" width="7" height="4">
+          <use xlinkHref="#icon-arrow-select"></use>
+        </svg>
+      </span>
+      {isOpened && (
+        <ul className="places__options places__options--custom places__options--opened">
+          {(Object.entries(Sorting) as [SortName, Sorting][]).map(([name, title]) => (
+            <li
+              key={name}
+              className={`places__option${name === activeSorting ? ' places__option--active' : ''}`}
+              onClick={() => handleSortItemClick(name)}
+              tabIndex={0}
+            >
+              {title}
+            </li>
+          ))}
+        </ul>
+      )}
+    </form>
+  );
+};
+Таким образом при изменении типа сортировки компонент SortingList будет передавать название типа сортировки SortName в нужный callback.
+
+Выбор активной метки на карте
+Ранее мы реализовали большую часть работы, осталось передать карте id активного предложения, чтобы закрасить соответствующий пин. Теперь вместе с locations будем передавать координаты предложения и его id, чтобы было с чем сравнивать наше активное предложение. Добавляем новый проп activeOffer и расширяем схему locations,, а так же создаем новый активный Icon, который будет установлен при совпадении activeOffer с id из location:
+
+import { useRef, useEffect } from 'react';
+import { Icon, Marker } from 'leaflet';
+
+import type { City, Location } from '../../types/types';
+
+import useMap from '../../hooks/useMap';
+import { URL_MARKER_CURRENT, URL_MARKER_DEFAULT } from '../../const';
+
+import 'leaflet/dist/leaflet.css';
+
+type MapProps = {
+  city: City;
+  locations: (Location & { id?: number })[];
+  activeOffer?: null | number;
+  place?: 'cities' | 'property';
+};
+
+const defaultCustomIcon = new Icon({
+  iconUrl: URL_MARKER_DEFAULT,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
+});
+
+const currentCustomIcon = new Icon({
+  iconUrl: URL_MARKER_CURRENT,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40]
+});
+
+const Map = ({ city, locations, activeOffer, place = 'cities' }: MapProps): JSX.Element => {
+  const mapRef = useRef(null);
+  const map = useMap(mapRef, city);
+
+  useEffect(() => {
+    const markers: Marker[] = [];
+
+    if (map) {
+      locations.forEach(({ id, latitude: lat, longitude: lng }) => {
+        const marker = new Marker({
+          lat,
+          lng
+        });
+
+        marker
+          .setIcon(activeOffer === id ? currentCustomIcon : defaultCustomIcon)
+          .addTo(map);
+
+        markers.push(marker);
+      });
+
+      const { latitude: lat, longitude: lng,} = CityLocation[city.name];
+      map.setView({ lat, lng });
+    }
+
+    return () => {
+      if (map) {
+        markers.forEach((marker) => {
+          map.removeLayer(marker);
+        });
+      }
+    };
+  }, [map, city, locations, activeOffer]);
+
+  return <section className={`${place}__map map`} ref={mapRef} />;
+};
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setSorting } from '../../store/action';
+import { Comparator} from '../../const';
+import Card from '../card/card';
+import Map from '../map/map';
+import Sorting from '../sorting/sorting';
+
+const CardList = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const activeSorting = useAppSelector((state) => state.sorting);
+  const activeCity = useAppSelector((state) => state.city);
+  const offers = useAppSelector((state) => state.offers
+    .filter((offer) => offer.city.name === state.city.name)
+    .sort(Comparator[state.sorting])
+    );
+  const [activeOffer, setActiveOffer] = useState<number | null>(null);
+
+  const handleCardMouseEnter = (id: number) => {
+    setActiveOffer(id);
+  };
+
+  const handleCardMouseLeave = () => {
+    setActiveOffer(null);
+  };
+
+  const onSortingChange = (name: SortName) => {
+    dispatch(setSorting(name));
+  };
+
+  return (
+    <>
+      <section className="cities__places places">
+        <h2 className="visually-hidden">Places</h2>
+        <b className="places__found">{offers.length} places to stay in {activeCity.name}</b>
+        <Sorting onChange={onSortingChange} activeSorting={activeSorting} />
+        <div className="cities__places-list places__list tabs__content">
+          {offers.map((offer) => (
+            <Card
+              key={offer.id}
+              {...offer}
+              onMouseEnter={handleCardMouseEnter}
+              onMouseLeave={handleCardMouseLeave}
+            />
+          ))}
+        </div>
+      </section>
+      <div className="cities__right-section">
+        <Map locations={offers.map(({ id, location }) => ({ id, ...location }))} city={activeCity} activeOffer={activeOffer} />
+      </div>
+    </>
+  );
+};
+Убедимся, что сортировка и активный маркер работают:

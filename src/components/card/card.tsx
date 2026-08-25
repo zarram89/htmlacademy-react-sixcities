@@ -1,10 +1,12 @@
 import type { Offer } from '../../types/types';
 
-import { AppRoute, MAX_PERCENT_STARS_WIDTH, STARS_COUNT } from '../../const';
+import { AppRoute } from '../../const';
+import { getStarsWidth } from '../../utils';
 
 type CardProps = Offer & {
-  onMouseMove: (id: number) => void;
-  onMouseLeave: () => void;
+  onMouseMove?: (id: number) => void;
+  onMouseLeave?: () => void;
+  place?: 'cities' | 'favorites' | 'near-places';
 };
 
 const Card = ({
@@ -14,9 +16,11 @@ const Card = ({
   title,
   isPremium,
   isFavorite,
+  previewImage,
   type,
-  onMouseMove,
-  onMouseLeave,
+  place = 'cities',
+  onMouseMove = () => void 0,
+  onMouseLeave = () => void 0,
 }: CardProps): JSX.Element => {
   const handleMouseMove = () => {
     onMouseMove(id);
@@ -24,7 +28,7 @@ const Card = ({
 
   return (
     <article
-      className="cities__card place-card"
+      className={`${place}__card place-card`}
       onMouseMove={handleMouseMove}
       onMouseLeave={onMouseLeave}
     >
@@ -33,11 +37,11 @@ const Card = ({
           <span>Premium</span>
         </div>
       )}
-      <div className="cities__image-wrapper place-card__image-wrapper">
+      <div className={`${place}__image-wrapper place-card__image-wrapper`}>
         <a href="#">
           <img
             className="place-card__image"
-            src="img/apartment-01.jpg"
+            src={previewImage}
             width="260"
             height="200"
             alt="Place image"
@@ -65,7 +69,7 @@ const Card = ({
           <div className="place-card__stars rating__stars">
             <span
               style={{
-                width: `${(MAX_PERCENT_STARS_WIDTH * rating) / STARS_COUNT}%`,
+                width: getStarsWidth(rating),
               }}
             >
             </span>

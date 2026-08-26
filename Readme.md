@@ -2543,3 +2543,575 @@ const CardList = (): JSX.Element => {
   );
 };
 Убедимся, что спиннер показывается и данные загружаются:
+
+### 7.11. Добро пожаловать, или посторонним вход воспрещён (часть 1)
+
+Продолжаем взаимодействовать с сервером и на этот раз решим задачу аутентификации. В каждом проекте предусмотрена страница для входа в приложение с помощью комбинации из логина и пароля. В этом задании мы запрограммируем новый компонент и на практике разберёмся с процессом аутентификации.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Определите в глобальном состоянии приложения новое поле authorizationStatus. В нём будем хранить информацию о прохождении авторизации. На основании значения этого поля мы будем принимать решение о необходимости рендеринга компонента авторизации.
+
+Создайте новое действие (action) и обновите функцию-редьюсер для изменения значения поля, созданного в предыдущем шаге.
+
+Опишите новое асинхронное действие (login). Для этого вам потребуется с помощью axios сделать GET-запрос к ресурсу /login на сервере (полная информация о взаимодействии с сервером приведена в техническом задании). Для обработки статуса 401 можно воспользоваться механизмом перехватчиков в axios.
+
+Воспользуйтесь действием (action), созданным в прошлом шаге, и напишите код для проверки прохождения авторизации. Этот код должен выполняться при старте приложения. Если авторизация пройдена, необходимо обновить значение поля authorizationStatus (смотри первый шаг).
+
+Обратите внимание. Пока мы не реализовали код для выполнения авторизации, результатом проверки прохождения авторизации всегда будет отсутствие авторизации. Это нормально.
+
+Обновите ранее созданный компонент PrivateRoute. Компонент должен опираться на значение поля authorizationStatus в глобальном состоянии. Для этого вам потребуется подключить компонент PrivateRoute к хранилищу.
+
+Доработайте компонент главной страницы. Для гостей в шапке страницы отображается ссылка для перехода на страницу ввода логина и пароля. Для авторизованных пользователей — информация о пользователе (смотри пример в макете) и кнопка для выхода.
+
+Опишите новое асинхронное действие для авторизации. Для этого вам потребуется с помощью axios сделать POST-запрос к ресурсу /login с данными email, password на сервер. В случае успешной авторизации не забудьте поменять статус authorizationStatus на «авторизован».
+
+Обратите внимание. В случае успешной аутентификации сервер вернёт код 200, а в теле запроса вернёт объект вида AuthInfo (подробности в техническом задании). Он содержит токен, который необходимо отправлять на сервер вместе с запросами (подробности в техническом задании).
+
+Сервер может вернуть код 400 (Bad request), который означает, что были переданы не все данные (например, только email). Более подробную информацию об ошибке вы сможете узнать из ответа сервера.
+
+В приложении отсутствует регистрация, поэтому вы можете вводить любые корректные комбинации email/пароль. Пароль не должен состоять из пробелов.
+
+С помощью созданного действия в предыдущем шаге и экрана авторизации реализуйте авторизацию пользователя в приложении по маршруту /login.
+
+Реализуйте логику перехода от экрана авторизации к главной странице.
+
+### Добро пожаловать, или посторонним вход воспрещён (часть 1)
+
+В данном задании мы закрепим знания по работе с сервером, а так же разберем один из методов авторизации.
+
+Добавляем признак авторизации
+Статус авторизации — глобальное свойство, которое может понадобиться даже в самых отдаленных уголках нашего приложения, поэтому его однозначно стоит вынести в store:
+
+import type { City, Offer, SortName, User } from '../types/types';
+
+import { AuthorizationStatus, cities, CityLocation } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  isOffersLoading: boolean;
+  sorting: SortName;
+  authorizationStatus: AuthorizationStatus;
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  offers: [],
+  isOffersLoading: false,
+  sorting: 'Popular',
+  authorizationStatus: AuthorizationStatus.NoAuth,
+};
+Логично, что это свойство следует менять после авторизации или окончании сессии, нужный нам action будет делать запрос к серверу, который будет сообщать нам авторизованы мы или нет, а так же возвращать информацию о текущем пользователе User, по какому признаку сервер будет это понимать — разберем позднее. Заведём соответствующий асинхронный action при помощи уже знакомого нам createAsyncThunk:
+
+import type { AxiosInstance } from 'axios';
+import { createAction, createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { CityName, User, Offer, SortName } from '../types/types';
+import { ApiRoute } from '../const';
+
+export const Action = {
+  SET_CITY: 'city/set',
+  FETCH_OFFERS: 'offers/fetch',
+  SET_SORTING: 'sorting/set',
+  FETCH_USER_STATUS: 'user/fetch-status'
+};
+
+...
+
+export const fetchUserStatus = createAsyncThunk<User, undefined, { extra: AxiosInstance }>(
+  Action.FETCH_USER_STATUS,
+  async (_, { extra: api }) => {
+    const { data } = await api.get<User>(ApiRoute.Login);
+
+    return data;
+  });
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer, SortName, User } from '../types/types';
+
+import { setCity, fetchOffers, setSorting, fetchUserStatus, loginUser } from './action';
+import { AuthorizationStatus, cities, CityLocation, Sorting } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  isOffersLoading: boolean;
+  sorting: SortName;
+  authorizationStatus: AuthorizationStatus;
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  offers: [],
+  isOffersLoading: false,
+  sorting: Sorting.Popular,
+  authorizationStatus: AuthorizationStatus.NoAuth,
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    ...
+    .addCase(fetchUserStatus.fulfilled, (state, action) => {
+      state.user = action.payload.email;
+      state.authorizationStatus = AuthorizationStatus.Auth;
+    })
+    .addCase(fetchUserStatus.rejected, (state) => {
+      state.authorizationStatus = AuthorizationStatus.NoAuth;
+    })
+});
+Логично, что статус авторизации нужно получать сразу при старте приложения, как и знакомый нам ранее fetchOffers, задиспатчим action авторизации (да, пока статус всегда отрицательный, мы расширим эту логику позднее):
+
+import { configureStore } from '@reduxjs/toolkit';
+
+import { createAPI } from '../api';
+import { reducer } from './reducer';
+import { fetchOffers, fetchUserStatus } from './action';
+
+const api = createAPI();
+const store = configureStore({
+  reducer,
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware({
+    thunk: {
+      extraArgument: api,
+    },
+  }),
+});
+
+store.dispatch(fetchUserStatus());
+store.dispatch(fetchOffers());
+Обновляем компоненты, которые опираются на статус авторизации
+Вспомним, созданный нами ранее компонент PrivateRoute, ранее мы передавали статус авторизации «в лоб» — через props, однако теперь мы можем читать статус авторизации прямо из store, отредактируем наш компонент с уже привычным useAppSelector:
+
+import { Navigate } from 'react-router-dom';
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+
+type PrivateRouteProps = {
+  children: JSX.Element;
+}
+
+const PrivateRoute = ({ children }: PrivateRouteProps): JSX.Element => {
+  const authorizationStatus = useAppSelector((state) => state.authorizationStatus);
+
+  return (
+    authorizationStatus === AuthorizationStatus.Auth
+      ? children
+      : <Navigate to={AppRoute.Login} />
+  );
+};
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import PrivateRoute from '../private-route/private-route';
+import { AppRoute } from '../../const';
+
+const App = (): JSX.Element => (
+  <BrowserRouter>
+    <Routes>
+      ...
+      <Route
+        path={AppRoute.Favorites}
+        element={
+          <PrivateRoute>
+            <Favorites offers={[]} />
+          </PrivateRoute>
+        }
+      />
+            ...
+    </Routes>
+  </BrowserRouter>
+);
+Так же нам следует создать компонент шапки (Header) нашего приложения — в нём находятся личные данные о пользователи и кнопки для входа или выхода:
+
+import { Link } from 'react-router-dom';
+
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+
+const Header = () => {
+  const authorizationStatus = useAppSelector((state) => state.authorizationStatus);
+
+  return (
+    <header className="header">
+      <div className="container">
+        <div className="header__wrapper">
+          <div className="header__left">
+            <Link className="header__logo-link header__logo-link--active" to={AppRoute.Root}>
+              <img
+                className="header__logo"
+                src="img/logo.svg"
+                alt="6 cities logo"
+                width="81"
+                height="41"
+              />
+            </Link>
+          </div>
+          <nav className="header__nav">
+            <ul className="header__nav-list">
+              {authorizationStatus === AuthorizationStatus.Auth && (
+                <li className="header__nav-item user">
+                  <Link
+                    className="header__nav-link header__nav-link--profile"
+                    to={AppRoute.Favorites}
+                  >
+                    <div className="header__avatar-wrapper user__avatar-wrapper"></div>
+                    <span className="header__user-name user__name">
+                      Oliver.conner@gmail.com
+                    </span>
+                    <span className="header__favorite-count">3</span>
+                  </Link>
+                </li>)}
+              <li className="header__nav-item">
+                <Link className="header__nav-link" to={AppRoute.Login}>
+                  <span className="header__signout">{authorizationStatus === AuthorizationStatus.Auth ? 'Sign out' : 'Sign in'}</span>
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+};
+Обратите внимание, что Header дублируется на всех страницах нашего приложения, добавлять его на все страницы не нужно (а только на главную) — мы сделаем это более гибко в одном из следующих заданий.
+
+Авторизация пользователя
+Признак авторизации готов, потребители тоже (наши компоненты), осталось добавить саму логику авторизации по логину и паролю, подготовим соответствующий action, новое свойство user в store для почты пользователя, которая будет отображаться в шапке, а так же схему данных для авторизации UserAuth:
+
+export type User = {
+    id: number;
+    name: string;
+    avatarUrl: string;
+    isPro: boolean;
+    email: string;
+    token: string;
+};
+
+export type UserAuth = Pick<User, 'email'> & { password: string };
+import type { AxiosInstance } from 'axios';
+import { createAction, createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { CityName, UserAuth, User, Offer, SortName } from '../types/types';
+import { ApiRoute } from '../const';
+
+export const Action = {
+  SET_CITY: 'city/set',
+  FETCH_OFFERS: 'offers/fetch',
+  SET_SORTING: 'sorting/set',
+  LOGIN_USER: 'user/login',
+  FETCH_USER_STATUS: 'user/fetch-status'
+};
+
+...
+
+export const loginUser = createAsyncThunk<UserAuth['email'], UserAuth, { extra: AxiosInstance }>(
+  Action.LOGIN_USER,
+  async ({ email, password }, { extra: api }) => {
+    const { data } = await api.post<User>(ApiRoute.Login, { email, password });
+
+    return email;
+  });
+Обратите внимание, что мы отправляем данные на сервер, для этого используем HTTP метод POST, вместо привычного нам GET. Подробнее про HTTP методы можно прочитать на MDN.
+
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer, SortName, User } from '../types/types';
+
+import { setCity, fetchOffers, setSorting, fetchUserStatus, loginUser } from './action';
+import { AuthorizationStatus, cities, CityLocation, Sorting } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  isOffersLoading: boolean;
+  sorting: SortName;
+  authorizationStatus: AuthorizationStatus;
+  user: User['email'];
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  offers: [],
+  isOffersLoading: false,
+  sorting: Sorting.Popular,
+  authorizationStatus: AuthorizationStatus.NoAuth,
+  user: ''
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    ...
+    .addCase(loginUser.fulfilled, (state, action) => {
+      state.user = action.payload;
+      state.authorizationStatus = AuthorizationStatus.Auth;
+    });
+});
+Также в теле ответа на запрос loginUser будет приходить token — значение, которое следует посылать с каждым запросом в соответствующем заголовке — так сервер поймёт, что мы авторизованы. Для начала подготовим утилитарный класс Token, который поможет нам забирать, сохранять и удалять token, а сам token будет храниться в localStorage для того, чтобы «не терять» его между сессиями:
+
+export class Token {
+  private static _name = 'six-cities-auth-token';
+
+  static get() {
+    const token = localStorage.getItem(this._name);
+
+    return token ?? '';
+  }
+
+  static save(token: string) {
+    localStorage.setItem(this._name, token);
+  }
+
+  static drop() {
+    localStorage.removeItem(this._name);
+  }
+}
+Помимо сохранения token после успешной авторизации, исходя из ТЗ, нам следует перенаправлять пользователя на предыдущую страницу, для этого воспользуемся API из пакета history, он уже есть в package.json:
+
+import { createBrowserHistory } from 'history';
+
+const history = createBrowserHistory();
+import { unstable_HistoryRouter as HistoryRouter, } from 'react-router-dom';
+
+...
+
+const App = (): JSX.Element => (
+  <HistoryRouter history={history}>
+    ...
+  </HistoryRouter>
+);
+Для более удобной работы с браузерной историей внутри action добавим её, как дополнительный аргумент в наш store, как мы делали это ранее с api:
+
+import { configureStore } from '@reduxjs/toolkit';
+
+import { createAPI } from '../api';
+import { reducer } from './reducer';
+import history from '../history';
+
+const api = createAPI();
+const store = configureStore({
+  reducer,
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware({
+    thunk: {
+      extraArgument: {
+        api,
+        history
+      },
+    },
+  }),
+});
+Доработаем наш action для сохранения token и перенаправлением с history, не забывая про обновление остальных action новой схемой extra аргумента:
+
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAction, createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { CityName, UserAuth, User, Offer, SortName } from '../types/types';
+import { ApiRoute, AppRoute } from '../const';
+import { Token } from '../utils';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  SET_CITY: 'city/set',
+  FETCH_OFFERS: 'offers/fetch',
+  SET_SORTING: 'sorting/set',
+  LOGIN_USER: 'user/login',
+  FETCH_USER_STATUS: 'user/fetch-status'
+};
+
+...
+
+export const loginUser = createAsyncThunk<UserAuth['email'], UserAuth, Extra>(
+  Action.LOGIN_USER,
+  async ({ email, password }, { extra }) => {
+        const { api, history } = extra;
+    const { data } = await api.post<User>(ApiRoute.Login, { email, password });
+    const { token } = data;
+
+    Token.save(token);
+    history.push(AppRoute.Root);
+
+    return email;
+  });
+Наш token сохранён, однако теперь следует его «приклеить» к каждому запросу пользователя в заголовок x-token, в этом нам помогут axios интерцепторы — механизмы, которые позволяют делать различные действия до запроса или после ответа сервера:
+
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { Token } from './utils';
+
+const BACKEND_URL = 'https://10.react.pages.academy/six-cities';
+const REQUEST_TIMEOUT = 5000;
+
+export const createAPI = (): AxiosInstance => {
+  const api = axios.create({
+    baseURL: BACKEND_URL,
+    timeout: REQUEST_TIMEOUT,
+  });
+
+  api.interceptors.request.use(
+    (config: AxiosRequestConfig) => {
+      const token = Token.get();
+
+      if (token) {
+        config.headers['x-token'] = token;
+      }
+
+      return config;
+    },
+  );
+
+  return api;
+};
+Логика авторизации готова, однако теперь нужно доработать страницу Login, чтобы она могла диспатчить нужный нам action с логином и паролем. Для сбора данных с формы воспользуемся FormData:
+
+import type { FormEvent } from 'react';
+import type { UserAuth } from '../../types/types';
+
+import { useAppDispatch } from '../../hooks';
+import { loginUser } from '../../store/action';
+
+const Login = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+
+    const formData = new FormData(form) as Iterable<[UserAuth]>;
+    const data = Object.fromEntries(formData);
+
+    dispatch(loginUser(data));
+  };
+  return (
+    <div className="page page--gray page--login">
+      <header className="header">
+        <div className="container">
+          <div className="header__wrapper">
+            <div className="header__left">
+              <a className="header__logo-link" href="main.html">
+                <img
+                  className="header__logo"
+                  src="img/logo.svg"
+                  alt="6 cities logo"
+                  width={81}
+                  height={41}
+                />
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+      <main className="page__main page__main--login">
+        <div className="page__login-container container">
+          <section className="login">
+            <h1 className="login__title">Sign in</h1>
+            <form className="login__form form" action="#" method="post" onSubmit={handleFormSubmit}>
+              <div className="login__input-wrapper form__input-wrapper">
+                <label className="visually-hidden">E-mail</label>
+                <input
+                  className="login__input form__input"
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  required
+                />
+              </div>
+              <div className="login__input-wrapper form__input-wrapper">
+                <label className="visually-hidden">Password</label>
+                <input
+                  className="login__input form__input"
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  required
+                />
+              </div>
+              <button
+                className="login__submit form__submit button"
+                type="submit"
+              >
+                Sign in
+              </button>
+            </form>
+          </section>
+          <section className="locations locations--login locations--current">
+            <div className="locations__item">
+              <a className="locations__item-link" href="#">
+                <span>Amsterdam</span>
+              </a>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+};
+Обратите внимание, что наша форма является неконтролируемой (мы не работаем с ней через state) — это удобно в тех случаях, когда в форме много полей, либо они добавляются/удаляются динамически.
+
+И теперь последнее, что остается сделать — обновить компонент Header данными о нашем пользователе:
+
+import { Link } from 'react-router-dom';
+
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+
+const Header = () => {
+  const authorizationStatus = useAppSelector((state) => state.authorizationStatus);
+  const user = useAppSelector((state) => state.user);
+
+  return (
+    <header className="header">
+      <div className="container">
+        <div className="header__wrapper">
+          <div className="header__left">
+            <Link className="header__logo-link header__logo-link--active" to={AppRoute.Root}>
+              <img
+                className="header__logo"
+                src="img/logo.svg"
+                alt="6 cities logo"
+                width="81"
+                height="41"
+              />
+            </Link>
+          </div>
+          <nav className="header__nav">
+            <ul className="header__nav-list">
+              {authorizationStatus === AuthorizationStatus.Auth && (
+                <li className="header__nav-item user">
+                  <Link
+                    className="header__nav-link header__nav-link--profile"
+                    to={AppRoute.Favorites}
+                  >
+                    <div className="header__avatar-wrapper user__avatar-wrapper"></div>
+                    <span className="header__user-name user__name">
+                      {user}
+                    </span>
+                    <span className="header__favorite-count">3</span>
+                  </Link>
+                </li>)}
+              <li className="header__nav-item">
+                <Link className="header__nav-link" to={AppRoute.Login}>
+                  <span className="header__signout">{authorizationStatus === AuthorizationStatus.Auth ? 'Sign out' : 'Sign in'}</span>
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+};
+Убедимся, что процесс авторизации работает от начала ввода данных пользователем до перехода на приватную страницу Favorites, чтобы убедиться что данные о пользователе «живут», а статус авторизации на сервере определяется корректно — нужно обновить страницу:
+

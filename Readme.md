@@ -352,7 +352,7 @@ type MainProps = {
 
 const Main = ({ offersCount = 0 }: MainProps): JSX.Element => (
   <div className="page page--gray page--main">
-        <b className="places__found">{offersCount} places to stay in Amsterdam</b> 
+        <b className="places__found">{offersCount} places to stay in Amsterdam</b>
     {Array.from({ length: offersCount }, () => <Card />)}
   </div />
 )
@@ -615,7 +615,7 @@ export type Offer = {
   previewImage: string;
   type: 'apartment' | 'room' | 'house' | 'hotel';
     city: {
-        name: string;   
+        name: string;
     }
 };
 import type { Offer } from '../types/types';
@@ -972,8 +972,8 @@ type MainProps = {
 const Main = ({ offers }: MainProps): JSX.Element => (
   <div className="page page--gray page--main">
         ...
-            <CardList offers={offers} />  
-        ... 
+            <CardList offers={offers} />
+        ...
   </div>
 );
 Для закрепления знаний добавим новый компонент формы для отправки отзыва на странице объявления, добавив ему состояние текущего введенного отзыва из текстового поля и выбранного рейтинга:
@@ -1453,7 +1453,7 @@ const Main = ({ city, offers }: MainProps): JSX.Element => (
   <div className="page page--gray page--main">
         ...
             <Map locations={offers.map((offer) => offer.location)} city={city} />
-        ... 
+        ...
   </div>
 );
 Обратите внимание, что компоненту карты совершенно не нужны все данные о предложении, а только лишь координаты, поэтому передаем только свойство location конкретного предложения
@@ -2293,3 +2293,253 @@ const CardList = (): JSX.Element => {
   );
 };
 Убедимся, что сортировка и активный маркер работают:
+
+
+### 7.10. Истина где-то на сервере
+
+Пришло время подключить проект к боевому серверу, избавиться от тестовых данных и попрактиковаться в работе с новыми инструментами: axios и redux-thunk. В этом задании мы сконфигурируем проект для взаимодействия с удалённым сервером, а затем загрузим реальные данные.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+six-cities
+Отключите и удалите файл с тестовыми данными. Больше они не понадобятся.
+
+Создайте новый модуль (например, api.ts), подключите в нём пакет axios, который уже предустановлен в вашем проекте. Опишите функцию для конфигурирования нового экземпляра axios:
+
+baseURL — основной адрес сервера (URL). Он будет использоваться для всех относительных адресов. Адрес сервера определён в техническом задании к проекту.
+timeout — 5000.
+В файле src/store/index.ts воспользуйтесь функцией из предыдущего шага и сохраните настроенный экземпляр axios в переменную. Затем обновите конфигурирование хранилища: настройте middleware thunk и передайте в extraArgument экземпляр axios.
+
+Напишите код для загрузки и отрисовки списка предложений аренды с сервера. Подробная информация о взаимодействии с сервером приведена в техническом задании. Список предложений должен загружаться при старте приложения.
+
+Создайте новый компонент «Спиннер». Компонент должен отображаться, пока происходит загрузка списка предложений по аренде. Дизайн спиннера остаётся на ваше усмотрение.
+
+### Истина где-то на сервере
+
+В данном задании вы научитесь работать с сервером, а так же управлять асинхронными действиями в redux.
+
+Перед началом выполнения задания удалите папку mocks, в данном задании к серверу мы будем подключать только главную страницу Main, поэтому во всех остальных страницах можно временно передать пустые массивы с данными
+
+Подключаем axios:
+Axios позволяет более удобно взаимодействовать с сервером, чем нативный fetch, например, он позволяет создать экземпляры с нужными настройками (это удобно для аутентификации), а так же является кроссбраузерным. Подключим его в соответствующий модуль, а затем создадим экземпляр api:
+
+import axios, { AxiosInstance } from 'axios';
+
+const BACKEND_URL = 'https://10.react.pages.academy/six-cities';
+const REQUEST_TIMEOUT = 5000;
+
+export const createAPI = (): AxiosInstance => {
+  const api = axios.create({
+    baseURL: BACKEND_URL,
+    timeout: REQUEST_TIMEOUT,
+  });
+
+  return api;
+};
+import { configureStore } from '@reduxjs/toolkit';
+
+import { createAPI } from '../api';
+import { reducer } from './reducer';
+import { fetchOffers } from './action';
+
+const api = createAPI();
+const store = configureStore({
+  reducer
+});
+После создания экземпляра axios, передадим его в качестве дополнительного параметра для нашего store — это удобно тем, что доступ к экземпляру будет доступен во всех action:
+
+import { configureStore } from '@reduxjs/toolkit';
+
+import { createAPI } from '../api';
+import { reducer } from './reducer';
+import { fetchOffers } from './action';
+
+const api = createAPI();
+const store = configureStore({
+  reducer,
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware({
+    thunk: {
+      extraArgument: api,
+    },
+  }),
+});
+Делаем запросы к серверу
+Ранее мы создавали actionsetOffers, однако теперь action будет не только записывать нужные предложения в store, но и делать запрос, изменим имя у данного action и добавим логики работы с сервером — в этом нам поможет createAsyncThunk и наш axios экземпляр, переданный в качестве дополнительного аргумента в наш thunkApi:
+
+import type { AxiosInstance } from 'axios';
+import { createAction, createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { CityName, Offer, SortName } from '../types/types';
+import { ApiRoute } from '../const';
+
+export const Action = {
+  SET_CITY: 'city/set',
+  FETCH_OFFERS: 'offers/fetch',
+  SET_SORTING: 'sorting/set'
+};
+
+export const setCity = createAction<CityName>(Action.SET_CITY);
+export const setSorting = createAction<SortName>(Action.SET_SORTING);
+
+export const fetchOffers = createAsyncThunk<Offer[], undefined, { extra: AxiosInstance }>(
+  Action.FETCH_OFFERS,
+  async (_, { extra: api }) => {
+    const { data } = await api.get<Offer[]>(ApiRoute.Offers);
+
+    return data;
+  });
+Обратите внимание, что первый аргумент в асинхронной функции не используется — он нужен для передачи каких-то параметров при dispatch, однако в данном action это не нужно, но будет нужно позднее, например, при загрузке данных конкретного объявления по ID
+
+Далее стоит обновить логику в нашем reducer:
+
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer, SortName } from '../types/types';
+
+import { setCity, fetchOffers, setSorting } from './action';
+import { cities, CityLocation, Sorting } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  sorting: SortName;
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  offers: [],
+  sorting: Sorting.Popular,
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    .addCase(setCity, (state, action) => {
+      state.city = {
+        name: action.payload,
+        location: CityLocation[action.payload],
+      };
+    })
+    .addCase(fetchOffers.fulfilled, (state, action) => {
+      state.offers = action.payload;
+    })
+    .addCase(setSorting, (state, action) => {
+      state.sorting = action.payload;
+    });
+});
+Обратите внимание, что мы используем свойство fulfilled, оно схоже с состоянием Promise и гласит, что запрос был выполнен успешно. Таким образом при успешном запросе в store запишутся нужные предложения об аренде.
+
+Логично, что запрос делается не мгновенно, на задержку влияет множество факторов, в теории пользователь может ждать загрузки несколько секунд, однако его следует как-то уведомить о том, что процесс идёт — нужно показывать индикатор (лоадер, спиннер и тд). Для реализации данной логики создадим дополнительное поле isOffersLoading в store, которое будет гласить, что загрузка активна, по этому признаку в интерфейсе приложения будет рисоваться нужный компонент спиннера. Смена флага isOffersLoading будет происходить благодаря статусам fulfilled и pending:
+
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { City, Offer, SortName } from '../types/types';
+
+import { setCity, fetchOffers, setSorting } from './action';
+import { cities, CityLocation, Sorting } from '../const';
+
+type State = {
+  city: City;
+  offers: Offer[];
+  isOffersLoading: boolean;
+  sorting: SortName;
+};
+
+const initialState: State = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  offers: [],
+  isOffersLoading: false,
+  sorting: Sorting.Popular,
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    .addCase(setCity, (state, action) => {
+      state.city = {
+        name: action.payload,
+        location: CityLocation[action.payload],
+      };
+    })
+    .addCase(fetchOffers.pending, (state, action) => {
+      state.isOffersLoading = true;
+    })
+    .addCase(fetchOffers.fulfilled, (state, action) => {
+      state.offers = action.payload;
+      state.isOffersLoading = false;
+    })
+    .addCase(fetchOffers.rejected, (state, action) => {
+      state.isOffersLoading = false;
+    })
+    .addCase(setSorting, (state, action) => {
+      state.sorting = action.payload;
+    });
+});
+Остаётся только создать компонент Spinner и отрисовывать его в CardList вместо списка карточек и карты, пока идёт загрузка:
+
+const Spinner = (): JSX.Element => <div>Загрузка...</div>;
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setSorting } from '../../store/action';
+import { Comparator} from '../../const';
+import Card from '../card/card';
+import Map from '../map/map';
+import SortingList from '../sorting-list/sorting-list';
+import Spinner from '../spinner/spinner';
+
+const CardList = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const activeSorting = useAppSelector((state) => state.sorting);
+  const activeCity = useAppSelector((state) => state.city);
+  const isOffersLoading = useAppSelector((state) => state.isOffersLoading);
+  const offers = useAppSelector((state) => state.offers.filter((offer) => offer.city.name === state.city.name).sort(Comparator[state.sorting]));
+  const [activeOffer, setActiveOffer] = useState<number | null>(null);
+
+  const handleCardMouseEnter = (id: number) => {
+    setActiveOffer(id);
+  };
+
+  const handleCardMouseLeave = () => {
+    setActiveOffer(null);
+  };
+
+  const onSortingChange = (name: SortName) => {
+    dispatch(setSorting(name));
+  };
+
+  if (isOffersLoading) {
+    return <Spinner />;
+  }
+
+  return (
+    <>
+      <section className="cities__places places">
+        <h2 className="visually-hidden">Places</h2>
+        <b className="places__found">{offers.length} places to stay in {activeCity.name}</b>
+        <SortingList onChange={onSortingChange} activeSorting={activeSorting} />
+        <div className="cities__places-list places__list tabs__content">
+          {offers.map((offer) => (
+            <Card
+              key={offer.id}
+              {...offer}
+              onMouseEnter={handleCardMouseEnter}
+              onMouseLeave={handleCardMouseLeave}
+            />
+          ))}
+        </div>
+      </section>
+      <div className="cities__right-section">
+        <Map locations={offers.map(({ id, location }) => ({ id, ...location }))} city={activeCity} activeOffer={activeOffer} />
+      </div>
+    </>
+  );
+};
+Убедимся, что спиннер показывается и данные загружаются:

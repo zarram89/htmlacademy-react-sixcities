@@ -4288,3 +4288,643 @@ const CitiesList = (): JSX.Element => {
 };
 Убедимся, что элементы списка теперь не перерендриваются лишний раз, а store разделён на несколько слайсов:
 
+### 8.10. Оптимизируй это (Часть 2)
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+six-cities
+Пришло время подумать и предусмотреть ситуацию, когда предложения по аренде отсутствуют (например, сервер не вернул предложений). В этом случае необходимо как-то сообщить пользователю, что информации для него нет. Для подобных ситуаций у главной страницы предусмотрено отдельное состояние.
+
+В первой части этого задания необходимо создать дополнительный компонент. Он должен рендериться на главной странице, если сервер не вернул предложения по аренде. А во второй части задания реализовать функцию добавления понравившегося предложения по аренде в избранное.
+
+Задача
+Создайте новый компонент. Компонент рендерится на главной странице в случае отсутствия предложений по аренде. Разметку для компонента вы можете найти в файле main-empty.html.
+
+Реализуйте функцию добавления понравившегося объявления в избранное. Клик по кнопке «Избранное» отправляет серверу запрос на добавление предложения по аренде в избранное. При успешном выполнении операции меняется состояние кнопки «Добавить в избранное» и актуализируется количество объявлений в избранном (отображается в шапке, рядом с email авторизованного пользователя).
+
+Повторный клик по кнопке «Добавить в избранное» приводит к обратному действию: формируется запрос к серверу на удаление объявления из избранного. При успешном выполнении актуализируется количество объявлений в избранном.
+
+Если пользователь не авторизован, то выполняется перенаправление на страницу «Login». Подробная информация о взаимодействии с сервером приведена в техническом задании к проекту.
+
+Предложения по аренде, добавленные в «Избранное», отображаются на странице «Favorites». Для получения списка предложений, добавленных в избранное, необходимо выполнить соответствующий запрос к серверу (смотри техническое задание к проекту). Страница «Favorites» доступна только авторизованным пользователям. Если пользователь не авторизован, выполняется перенаправление на страницу «Login».
+
+### Оптимизируй это (часть 2)
+
+Архив проекта
+
+В этом задании мы доработаем работы с избранными предложениями.
+
+Создаём заглушку, если не пришло ни одного предложения
+Могут быть такие ситуации, что сервер ничего не прислал или пользователь выбрал такие фильтры, что по ним ничего не нашлось. Нужно предусмотреть такой случай, добавив компонент CardListEmpty:
+
+import { CityName } from '../../types/types';
+
+type CardListEmptyProps = {
+  city: CityName
+}
+
+const CardListEmpty = ({ city }: CardListEmptyProps): JSX.Element => (
+  <section className="cities__no-places">
+    <div className="cities__status-wrapper tabs__content">
+      <b className="cities__status">No places to stay available</b>
+      <p className="cities__status-description">We could not find any property available at the moment in {city}</p>
+    </div>
+  </section>
+);
+Подключим вновь созданный компонент, а так же доработаем старый — CardList:
+
+import type { SortName } from '../../types/types';
+
+import { useState } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setSorting } from '../../store/site-process/site-process';
+import Card from '../card/card';
+import Map from '../map/map';
+import SortingList from '../sorting-list/sorting-list';
+import Spinner from '../spinner/spinner';
+import { getCity, getSorting } from '../../store/site-process/selectors';
+import { getIsOffersLoading, selectOffers } from '../../store/site-data/selectors';
+import CardListEmpty from '../card-list-empty/card-list-empty';
+
+const CardList = (): JSX.Element => {
+  ...
+  const activeCity = useAppSelector(getCity);
+  const offers = useAppSelector(selectOffers);
+
+  const isEmpty = offers.length === 0;
+
+    ...
+
+  return (
+    <div className={`cities__places-container container${isEmpty ? ' cities__places-container page__main--index-empty' : ''}`}>
+      {isEmpty ? <CardListEmpty city={activeCity.name} /> : (
+        <section className="cities__places places">
+          ...
+        </section>)}
+      <div className="cities__right-section">
+        {!isEmpty && <Map locations={offers.map(({ id, location }) => ({ id, ...location }))} city={activeCity} activeOffer={activeOffer} />}
+      </div>
+    </div>
+  );
+};
+Обращаемся к серверу за избранными предложениями
+Повторяем уже известную нам схему async action → reducer → компонент (и не забываем про флаг загрузки — он поможет нам показать Spinner):
+
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Offer } from '../types/types';
+import { ApiRoute, HttpCode } from '../const';
+import { Token } from '../utils';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  FETCH_FAVORITE_OFFERS: 'offers/fetch-favorite',
+};
+
+export const fetchFavoriteOffers = createAsyncThunk<Offer[], undefined, { extra: Extra }>(
+  Action.FETCH_FAVORITE_OFFERS,
+  async (_, { extra }) => {
+    const { api } = extra;
+    const { data } = await api.get<Offer[]>(ApiRoute.Favorite);
+
+    return data;
+  });
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { SiteData } from '../../types/state';
+import { StoreSlice } from '../../const';
+import { fetchFavoriteOffers } from '../action';
+
+const initialState: SiteData = {
+    ...
+  favoriteOffers: [],
+  isFavoriteOffersLoading: false,
+};
+
+export const siteData = createSlice({
+  name: StoreSlice.SiteData,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+      .addCase(fetchFavoriteOffers.pending, (state) => {
+        state.isFavoriteOffersLoading = true;
+      })
+      .addCase(fetchFavoriteOffers.fulfilled, (state, action) => {
+        state.favoriteOffers = action.payload;
+        state.isFavoriteOffersLoading = false;
+      })
+      .addCase(fetchFavoriteOffers.rejected, (state) => {
+        state.isFavoriteOffersLoading = false;
+      })
+    }
+});
+export const getIsFavoriteOffersLoading = ({ [StoreSlice.SiteData]: SITE_DATA }: State): boolean => SITE_DATA.isFavoriteOffersLoading;
+export const getFavoriteOffers = ({ [StoreSlice.SiteData]: SITE_DATA}: State): Offer[] => SITE_DATA.favoriteOffers;
+import Card from '../../components/card/card';
+import Spinner from '../../components/spinner/spinner';
+import { useAppSelector } from '../../hooks';
+import { getFavoriteOffers, getIsFavoriteOffersLoading } from '../../store/site-data/selectors';
+import type { Offer } from '../../types/types';
+
+const Favorites = (): JSX.Element => {
+  const isFavoriteOffersLoading = useAppSelector(getIsFavoriteOffersLoading);
+  const favoriteOffers = useAppSelector(getFavoriteOffers);
+
+  const groupedOffersByCity = favoriteOffers.reduce<{ [key: string ]: Offer[] }>((acc, curr) => {
+    if (curr.isFavorite) {
+      const city = curr.city.name;
+
+      if (!(city in acc)) {
+        acc[city] = [];
+      }
+
+      acc[city].push(curr);
+    }
+
+    return acc;
+  }, {});
+
+  if (isFavoriteOffersLoading) {
+    return <Spinner />;
+  }
+
+  return (
+    <div className="page">
+      <header className="header">
+        <div className="container">
+          <div className="header__wrapper">
+            <div className="header__left">
+              <a className="header__logo-link" href="main.html">
+                <img className="header__logo" src="img/logo.svg" alt="6 cities logo" width={81} height={41} />
+              </a>
+            </div>
+            <nav className="header__nav">
+              <ul className="header__nav-list">
+                <li className="header__nav-item user">
+                  <a className="header__nav-link header__nav-link--profile" href="#">
+                    <div className="header__avatar-wrapper user__avatar-wrapper">
+                    </div>
+                    <span className="header__user-name user__name">Oliver.conner@gmail.com</span>
+                    <span className="header__favorite-count">3</span>
+                  </a>
+                </li>
+                <li className="header__nav-item">
+                  <a className="header__nav-link" href="#">
+                    <span className="header__signout">Sign out</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </header>
+      <main className="page__main page__main--favorites">
+        <div className="page__favorites-container container">
+          <section className="favorites">
+            <h1 className="favorites__title">Saved listing</h1>
+            <ul className="favorites__list">
+              {Object.entries(groupedOffersByCity).map(([city, groupedOffers]) => (
+                <li className="favorites__locations-items" key={city}>
+                  <div className="favorites__locations locations locations--current">
+                    <div className="locations__item">
+                      <a className="locations__item-link" href="#">
+                        <span>{city}</span>
+                      </a>
+                    </div>
+                  </div>
+                  <div className="favorites__places">
+                    {groupedOffers.map((offer) => <Card key={offer.id} {...offer} place="favorites" />)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </main>
+      <footer className="footer container">
+        <a className="footer__logo-link" href="main.html">
+          <img className="footer__logo" src="img/logo.svg" alt="6 cities logo" width={64} height={33} />
+        </a>
+      </footer>
+    </div>
+  );
+};
+Обратите внимание, что если зайти на страницу Favorite, то мы не увидим ожидаемого поведения — списка избранных предложений, а получим перенаправление на страницу Login.
+
+Дело в логике компонента PrivateRoute — он перенаправляет нас, если мы не залогинены, однако процесс проверки авторизации асинхронный, поэтому стоит подождать какое-то время. Добавим соответствующую логику:
+
+export enum AuthorizationStatus {
+  Auth = 'AUTH',
+  NoAuth = 'NO_AUTH',
+  Unknown = 'UNKNOWN',
+}
+import { Navigate } from 'react-router-dom';
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+import { getAuthorizationStatus } from '../../store/user-process/selectors';
+import Spinner from '../spinner/spinner';
+
+type PrivateRouteProps = {
+  children: JSX.Element;
+}
+
+const PrivateRoute = ({ children }: PrivateRouteProps): JSX.Element => {
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+
+  if (authorizationStatus === AuthorizationStatus.Unknown) {
+    return <Spinner />;
+  }
+
+  return (
+    authorizationStatus === AuthorizationStatus.Auth
+      ? children
+      : <Navigate to={AppRoute.Login} />
+  );
+};
+Добавляем предложения в избранное
+Теперь добавим логику добавления предложения в избранное — подготовим очередной action:
+
+export type FavoriteAuth = Pick<Offer, 'id'> & { status: 1 | 0 }
+import type { History } from 'history';
+import type { AxiosInstance, AxiosError } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Offer, FavoriteAuth } from '../types/types';
+import { ApiRoute, AppRoute, HttpCode } from '../const';
+import { Token } from '../utils';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  POST_FAVORITE: 'offer/post-favorite',
+};
+
+export const postFavorite = createAsyncThunk<Offer, FavoriteAuth, { extra: Extra }>(
+  Action.POST_FAVORITE,
+  async ({ id, status }, { extra }) => {
+    const { api, history } = extra;
+
+    try {
+      const { data } = await api.post<Offer>(`${ApiRoute.Favorite}/${id}/${status}`);
+
+      return data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+
+      if (axiosError.response?.status === HttpCode.NoAuth) {
+        history.push(AppRoute.Login);
+      }
+
+      return Promise.reject(error);
+    }
+  });
+Обратите внимание, что если пользователь незалогинен, то его стоит перенаправлять на страницу Login. Похожий механизм мы реализовали в fetchOffer со страницей NotFound.
+
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { SiteData } from '../../types/state';
+import { StoreSlice } from '../../const';
+import { postFavorite } from '../action';
+
+const initialState: SiteData = {
+  offers: [],
+  offer: null,
+  favoriteOffers: [],
+};
+
+export const siteData = createSlice({
+  name: StoreSlice.SiteData,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+      .addCase(postFavorite.fulfilled, (state, action) => {
+        const updatedOffer = action.payload;
+        state.offers = state.offers.map((offer) => offer.id === updatedOffer.id ? updatedOffer : offer);
+
+        if (state.offer && state.offer.id === updatedOffer.id) {
+          state.offer = updatedOffer;
+        }
+
+        if (updatedOffer.isFavorite) {
+          state.favoriteOffers = state.favoriteOffers.concat(updatedOffer);
+        } else {
+          state.favoriteOffers = state.favoriteOffers.filter((favoriteOffer) => favoriteOffer.id !== updatedOffer.id);
+        }
+      });
+  }
+});
+Обратите внимание, что нам стоит изменить три поля:
+
+offer — изменить текущее предложение, если изменение было произведен по нему
+offers — обновить нужное предложение в списке всех объявлений
+favoriteOffers — добавить или удалить нужное предложение
+Далее стоит отметить, что элемент закладки встречается сразу в нескольких местах — в компоненте карточки Card и на странице избранного, чтобы логику добавления было легче поддерживать — вынесем этот элемент в отдельный компонент Bookmark:
+
+import { Offer } from '../../types/types';
+
+import { useAppDispatch } from '../../hooks';
+import { postFavorite } from '../../store/action';
+
+type BookmarkProps = {
+    id: Offer['id'];
+    isActive: boolean;
+    place?: 'place-card' | 'property'
+}
+
+const Bookmark = ({ id, isActive, place = 'place-card' }: BookmarkProps) => {
+  const dispatch = useAppDispatch();
+
+  const handleButtonClick = () => {
+    dispatch(postFavorite({
+      id,
+      status: isActive ? 0 : 1
+    }));
+  };
+
+  return (
+    <button
+      onClick={handleButtonClick}
+      className={`${place}__bookmark-button button${isActive ? ` ${place}__bookmark-button--active` : ''
+      }`}
+      type="button"
+    >
+      <svg className="place-card__bookmark-icon" width={place === 'property' ? 31 : 18} height={place === 'property' ? 33 : 19}>
+        <use xlinkHref="#icon-bookmark"></use>
+      </svg>
+      <span className="visually-hidden">{isActive ? 'From' : 'To'} bookmarks</span>
+    </button>
+  );
+};
+Обратите внимание, что в данном компоненте мы используем через хук только dispatch, а данные мы будем принимать через props:isActive — статус избранного и id — чтобы понимать к какому предложению относится данная закладка.
+Дополнительно можно заметить, что в компоненте Card и на странице Property компонент отличается размером и классом, поэтому будем использовать уже известный нам подход через propplace.
+
+Подключим наш компонент Bookmark в нужные места, а так же дополнительно произведем оптимизацию через memo в компоненте Card, чтобы он обновлялся только в том случае, когда флаг isFavorite сменился на противоположный:
+
+import { memo } from 'react';
+import { Link } from 'react-router-dom';
+
+import type { Offer } from '../../types/types';
+import { AppRoute } from '../../const';
+import { getStarsWidth } from '../../utils';
+import Bookmark from '../bookmark/bookmark';
+
+type CardProps = Offer & {
+  onMouseEnter?: (id: number) => void;
+  onMouseLeave?: () => void;
+  place?: 'cities' | 'favorites' | 'near-places';
+};
+
+const Card = ({
+  id,
+  price,
+  rating,
+  title,
+  isPremium,
+  isFavorite,
+  previewImage,
+  type,
+  place = 'cities',
+  onMouseEnter = () => void 0,
+  onMouseLeave = () => void 0,
+}: CardProps): JSX.Element => {
+  const handleMouseEnter = () => {
+    onMouseEnter(id);
+  };
+
+  return (
+    <article
+      className={`${place}__card place-card`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {isPremium && (
+        <div className="place-card__mark">
+          <span>Premium</span>
+        </div>
+      )}
+      <div className={`${place}__image-wrapper place-card__image-wrapper`}>
+        <a href="#">
+          <img
+            className="place-card__image"
+            src={previewImage}
+            width={place === 'favorites' ? 150 : 260}
+            height={place === 'favorites' ? 110 : 200}
+            alt="Place"
+          />
+        </a>
+      </div>
+      <div className="place-card__info">
+        <div className="place-card__price-wrapper">
+          <div className="place-card__price">
+            <b className="place-card__price-value">&euro;{price}</b>
+            <span className="place-card__price-text">&#47;&nbsp;night</span>
+          </div>
+          <Bookmark id={id} isActive={isFavorite} />
+        </div>
+        <div className="place-card__rating rating">
+          <div className="place-card__stars rating__stars">
+            <span
+              style={{
+                width: getStarsWidth(rating),
+              }}
+            >
+            </span>
+            <span className="visually-hidden">Rating</span>
+          </div>
+        </div>
+        <h2 className="place-card__name">
+          <Link to={`${AppRoute.Property}/${id}`}>{title}</Link>
+        </h2>
+        <p className="place-card__type">{type}</p>
+      </div>
+    </article>
+  );
+};
+
+export default memo(Card, (prevProps, nextProps) => prevProps.isFavorite === nextProps.isFavorite);
+import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+
+import ReviewList from '../../components/review-list/review-list';
+import Map from '../../components/map/map';
+import Card from '../../components/card/card';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { fetchOffer, fetchNearbyOffers, fetchComments, postComment } from '../../store/action';
+import Spinner from '../../components/spinner/spinner';
+import { getStarsWidth } from '../../utils';
+import { CommentAuth } from '../../types/types';
+import { getAuthorizationStatus } from '../../store/user-process/selectors';
+import { getComments, getIsOfferLoading, getNearbyOffers, getOffer } from '../../store/site-data/selectors';
+import Bookmark from '../../components/bookmark/bookmark';
+
+const Property = (): JSX.Element | null => {
+  const params = useParams();
+  const dispatch = useAppDispatch();
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+  const isOfferLoading = useAppSelector(getIsOfferLoading);
+  const offer = useAppSelector(getOffer);
+  const nearbyOffers = useAppSelector(getNearbyOffers);
+  const comments = useAppSelector(getComments);
+
+  useEffect(() => {
+    const { id } = params;
+    if (id) {
+      const parsedId = Number(id);
+      dispatch(fetchOffer(parsedId));
+      dispatch(fetchNearbyOffers(parsedId));
+      dispatch(fetchComments(parsedId));
+    }
+  }, [params, dispatch]);
+
+  if (isOfferLoading) {
+    return <Spinner />;
+  }
+
+  if (!offer) {
+    return null;
+  }
+
+  const { id, images, isPremium, isFavorite, title, rating, type, bedrooms, maxAdults, price, goods, host, description, city, location } = offer;
+
+  const locations = nearbyOffers.map(({ id: nearbyId, location: nearbyLocation, }) => ({ id: nearbyId, ...nearbyLocation }));
+  locations.push({ id, ...location });
+
+  const onFormSubmit = (formData: Omit<CommentAuth, 'id'>) => {
+    dispatch(postComment({ id, ...formData }));
+  };
+
+  return (
+    <div className="page">
+      <header className="header">
+        <div className="container">
+          <div className="header__wrapper">
+            <div className="header__left">
+              <a className="header__logo-link" href="main.html">
+                <img className="header__logo" src="img/logo.svg" alt="6 cities logo" width={81} height={41} />
+              </a>
+            </div>
+            <nav className="header__nav">
+              <ul className="header__nav-list">
+                <li className="header__nav-item user">
+                  <a className="header__nav-link header__nav-link--profile" href="#">
+                    <div className="header__avatar-wrapper user__avatar-wrapper">
+                    </div>
+                    <span className="header__user-name user__name">Oliver.conner@gmail.com</span>
+                    <span className="header__favorite-count">3</span>
+                  </a>
+                </li>
+                <li className="header__nav-item">
+                  <a className="header__nav-link" href="#">
+                    <span className="header__signout">Sign out</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </header>
+      <main className="page__main page__main--property">
+        <section className="property">
+          <div className="property__gallery-container container">
+            <div className="property__gallery">
+              {images.map((image) => (
+                <div key={image} className="property__image-wrapper">
+                  <img className="property__image" src={image} alt="Studio" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="property__container container">
+            <div className="property__wrapper">
+              {isPremium && (
+                <div className="property__mark">
+                  <span>Premium</span>
+                </div>
+              )}
+              <div className="property__name-wrapper">
+                <h1 className="property__name">
+                  {title}
+                </h1>
+                <Bookmark id={id} isActive={isFavorite} place="property" />
+              </div>
+              <div className="property__rating rating">
+                <div className="property__stars rating__stars">
+                  <span style={{width: getStarsWidth(rating)}} />
+                  <span className="visually-hidden">Rating</span>
+                </div>
+                <span className="property__rating-value rating__value">{rating}</span>
+              </div>
+              <ul className="property__features">
+                <li className="property__feature property__feature--entire">
+                  {type}
+                </li>
+                <li className="property__feature property__feature--bedrooms">
+                  {bedrooms} Bedrooms
+                </li>
+                <li className="property__feature property__feature--adults">
+                  Max {maxAdults} adults
+                </li>
+              </ul>
+              <div className="property__price">
+                <b className="property__price-value">€{price}</b>
+                <span className="property__price-text">&nbsp;night</span>
+              </div>
+              <div className="property__inside">
+                <h2 className="property__inside-title">What's inside</h2>
+                {goods.length > 0 && (
+                  <ul className="property__inside-list">
+                    {goods.map((good) => (
+                      <li key={good} className="property__inside-item">
+                        {good}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="property__host">
+                <h2 className="property__host-title">Meet the host</h2>
+                <div className="property__host-user user">
+                  <div className={`property__avatar-wrapper${host.isPro ? ' property__avatar-wrapper--pro' : ''} user__avatar-wrapper`}>
+                    <img className="property__avatar user__avatar" src={host.avatarUrl} width={74} height={74} alt={host.name} />
+                  </div>
+                  <span className="property__user-name">
+                    {host.name}
+                  </span>
+                  {host.isPro && <span className="property__user-status">Pro</span>}
+                </div>
+                <div className="property__description">
+                  <p className="property__text">
+                    {description}
+                  </p>
+                </div>
+              </div>
+              <ReviewList reviews={comments} authorizationStatus={authorizationStatus} onSubmit={onFormSubmit} />
+            </div>
+          </div>
+          <Map city={city} locations={locations} activeOffer={id} place="property" />
+        </section>
+        <div className="container">
+          <section className="near-places places">
+            <h2 className="near-places__title">Other places in the neighbourhood</h2>
+            <div className="near-places__list places__list">
+              {nearbyOffers.map((nearbyOffer) => <Card key={nearbyOffer.id} {...nearbyOffer} place="near-places" />)}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+};
+Проверяем избранные предложения, добавление в избранное, а так же пустую страницу объявлений, а бонусом — оптимизацию Card:

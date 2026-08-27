@@ -3133,3 +3133,1158 @@ six-cities
 
 ### Добро пожаловать, или посторонним вход воспрещён (часть 2)
 
+Архив проекта
+
+В данном задании мы закрепим знания по работе с сервером, а так же полностью доработаем страницу предложения Property.
+
+Дорабатываем страницу предложения: получаем нужные данные
+Страница предложения стоит из нескольких частей:
+
+Общая информация
+Список комментариев и форма
+Список предложений неподалёку
+Чтобы получить все данные, которые нам нужны, нам понадобится 3 отдельных запроса на сервер, по уже знакомой нам схеме создадим нужные action при помощи createAsyncThunk, а так же обновим схему reducer, начнём с общей информации о предложении:
+
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Offer } from '../types/types';
+import { ApiRoute } from '../const';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  ...
+  FETCH_OFFERS: 'offers/fetch',
+};
+
+...
+
+export const fetchOffer = createAsyncThunk<Offer, Offer['id'], { extra: Extra }>(
+  Action.FETCH_OFFER,
+  async (id, { extra }) => {
+    const { api } = extra;
+    const { data } = await api.get<Offer>(`${ApiRoute.Offers}/${id}`);
+
+    return data;
+  });
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { Offer } from '../types/types';
+
+import {  fetchOffer } from './action';
+
+type State = {
+  ...
+  offer: Offer | null;
+    isOffersLoading: boolean;
+};
+
+const initialState: State = {
+  ...
+  offer: null,
+    isOffersLoading: false,
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+    .addCase(fetchOffer.pending, (state) => {
+      state.isOfferLoading = true;
+    })
+    .addCase(fetchOffer.fulfilled, (state, action) => {
+      state.offer = action.payload;
+      state.isOfferLoading = false;
+    })
+    .addCase(fetchOffer.rejected, (state) => {
+      state.isOfferLoading = false;
+    })
+});
+Не забываем про уже знакомый нам механизм флага загрузки, чтобы показать Spinner на странице, пока предложение загружается.
+
+Дополним схему Offer недостающими типами:
+
+export type Offer = {
+    id: number;
+    price: number;
+    rating: number;
+    title: string;
+    isPremium: boolean;
+    isFavorite: boolean;
+    city: City;
+    location: Location;
+    previewImage: string;
+    type: 'apartment' | 'room' | 'house' | 'hotel';
+    bedrooms: number;
+    description: string;
+    goods: [string];
+    host: User;
+    images: [string];
+    maxAdults: number;
+};
+Далее подключим страницу предложения Property к нашему store, и добавим логику по отрисовке компонента Spinner:
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import Spinner from '../../components/spinner/spinner';
+
+const Property = (): JSX.Element | null => {
+  const isOfferLoading = useAppSelector((state) => state.isOfferLoading);
+  const offer = useAppSelector((state) => state.offer);
+
+  if (!offer) {
+    return null;
+  }
+
+  if (isOfferLoading) {
+    return <Spinner />;
+  }
+
+  return (
+    <div className="page">
+     ...
+    </div>
+  );
+};
+Готово, однако сейчас мы лишь забираем данные, но не диспатчим наш actionfetchOffer. Этот action должен учитывать id страницы, на которой мы находимся, например offers/2, чтобы получить эту информацию, воспользуемся хуком useParams, а так же задиспатчим action загрузки информации о предложении в хуке useEffect, который будет опираться на id текущей страницы:
+
+import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { fetchOffer } from '../../store/action';
+import Spinner from '../../components/spinner/spinner';
+
+const Property = (): JSX.Element | null => {
+  const params = useParams();
+  const dispatch = useAppDispatch();
+  const isOfferLoading = useAppSelector((state) => state.isOfferLoading);
+  const offer = useAppSelector((state) => state.offer);
+
+  useEffect(() => {
+    const { id } = params;
+    if (id) {
+      const parsedId = Number(id);
+      dispatch(fetchOffer(parsedId));
+    }
+  }, [params, dispatch]);
+
+  if (isOfferLoading) {
+    return <Spinner />;
+  }
+
+  if (!offer) {
+    return null;
+  }
+
+  const { id, images, isPremium, title, rating, type, bedrooms, maxAdults, price, goods, host, description, city, location } = offer;
+
+  return (
+    <div className="page">
+      ...
+    </div>
+  );
+};
+Теперь у нас «на руках» есть все нужные данные, заполним ими разметку:
+
+import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { fetchOffer } from '../../store/action';
+import Spinner from '../../components/spinner/spinner';
+
+const Property = (): JSX.Element | null => {
+  const params = useParams();
+  const dispatch = useAppDispatch();
+  const isOfferLoading = useAppSelector((state) => state.isOfferLoading);
+  const offer = useAppSelector((state) => state.offer);
+
+  useEffect(() => {
+    const { id } = params;
+    if (id) {
+      const parsedId = Number(id);
+      dispatch(fetchOffer(parsedId));
+    }
+  }, [params, dispatch]);
+
+  if (!offer) {
+    return null;
+  }
+
+  if (isOfferLoading) {
+    return <Spinner />;
+  }
+
+const { id, images, isPremium, title, rating, type, bedrooms, maxAdults, price, goods, host, description, city, location } = offer;
+
+return (
+    <div className="page">
+        ...
+      <main className="page__main page__main--property">
+        <section className="property">
+          <div className="property__gallery-container container">
+            <div className="property__gallery">
+              {images.map((image) => (
+                <div key={image} className="property__image-wrapper">
+                  <img className="property__image" src={image} alt="Studio" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="property__container container">
+            <div className="property__wrapper">
+              {isPremium && (
+                <div className="property__mark">
+                  <span>Premium</span>
+                </div>
+              )}
+              <div className="property__name-wrapper">
+                <h1 className="property__name">
+                  {title}
+                </h1>
+                <button className="property__bookmark-button button" type="button">
+                  <svg className="property__bookmark-icon" width={31} height={33}>
+                    <use xlinkHref="#icon-bookmark" />
+                  </svg>
+                  <span className="visually-hidden">To bookmarks</span>
+                </button>
+              </div>
+              <div className="property__rating rating">
+                <div className="property__stars rating__stars">
+                  <span style={{width: getStarsWidth(rating)}} />
+                  <span className="visually-hidden">Rating</span>
+                </div>
+                <span className="property__rating-value rating__value">{rating}</span>
+              </div>
+              <ul className="property__features">
+                <li className="property__feature property__feature--entire">
+                  {type}
+                </li>
+                <li className="property__feature property__feature--bedrooms">
+                  {bedrooms} Bedrooms
+                </li>
+                <li className="property__feature property__feature--adults">
+                  Max {maxAdults} adults
+                </li>
+              </ul>
+              <div className="property__price">
+                <b className="property__price-value">€{price}</b>
+                <span className="property__price-text">&nbsp;night</span>
+              </div>
+              <div className="property__inside">
+                <h2 className="property__inside-title">What's inside</h2>
+                {goods.length > 0 && (
+                  <ul className="property__inside-list">
+                    {goods.map((good) => (
+                      <li key={good} className="property__inside-item">
+                        {good}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="property__host">
+                <h2 className="property__host-title">Meet the host</h2>
+                <div className="property__host-user user">
+                  <div className={`property__avatar-wrapper${host.isPro ? ' property__avatar-wrapper--pro' : ''} user__avatar-wrapper`}>
+                    <img className="property__avatar user__avatar" src={host.avatarUrl} width={74} height={74} alt={host.name} />
+                  </div>
+                  <span className="property__user-name">
+                    {host.name}
+                  </span>
+                  {host.isPro && <span className="property__user-status">Pro</span>}
+                </div>
+                <div className="property__description">
+                  <p className="property__text">
+                    {description}
+                  </p>
+                </div>
+              </div>
+                            ...
+            </div>
+          </div>
+                        ...
+        </section>
+      </main>
+    </div>
+  );
+};
+Отлично, наша страница «ожила», однако мы не обработали случай, если пользователь ввел несуществующий id — в таком случае пользователя следует перенаправлять на 404 страницу, добавим соответствующую логику в fetchOffer:
+
+export enum AppRoute {
+  ...
+  NotFound = '/404'
+}
+
+export enum HttpCode {
+  NotFound = 404
+}
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Offer } from '../types/types';
+import { ApiRoute, AppRoute, HttpCode } from '../const';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  ...
+  FETCH_OFFERS: 'offers/fetch',
+};
+
+...
+
+export const fetchOffer = createAsyncThunk<Offer, Offer['id'], { extra: Extra }>(
+  Action.FETCH_OFFER,
+  async (id, { extra }) => {
+    const { api, history } = extra;
+
+        try {
+      const { data } = await api.get<Offer>(`${ApiRoute.Offers}/${id}`);
+
+      return data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+
+      if (axiosError.response?.status === HttpCode.NotFound) {
+        history.push(AppRoute.NotFound);
+      }
+
+      return Promise.reject(error);
+    }
+  });
+Обратите внимание, что при ответе от сервера статус-кодом 404, мы специально возвращаем Promise.reject(axiosError) — это позволит попасть в нужную ветку в reducer — fetchOffer.rejected. Подробнее про то, что может возвращать action можно прочитать в документации к createAsyncThunk.
+
+Логика перенаправления готова, теперь допишем недостающие action — для комментариев и объявлений неподалеку:
+
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Offer, Comment } from '../types/types';
+import { ApiRoute } from '../const';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  ...
+  FETCH_NEARBY_OFFERS: 'offers/fetch-nearby',
+  FETCH_COMMENTS: 'offer/fetch-comments',
+};
+
+...
+
+export const fetchNearbyOffers = createAsyncThunk<Offer[], Offer['id'], { extra: Extra }>(
+  Action.FETCH_NEARBY_OFFERS,
+  async (id, { extra }) => {
+    const { api } = extra;
+    const { data } = await api.get<Offer[]>(`${ApiRoute.Offers}/${id}/nearby`);
+
+    return data;
+  });
+
+export const fetchComments = createAsyncThunk<Comment[], Offer['id'], { extra: Extra }>(
+  Action.FETCH_COMMENTS,
+  async (id, { extra }) => {
+    const { api } = extra;
+    const { data } = await api.get<Comment[]>(`${ApiRoute.Comments}/${id}`);
+
+    return data;
+  });
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { Comment, Offer } from '../types/types';
+
+import { fetchNearbyOffers, fetchComments } from './action';
+
+type State = {
+  ...
+  nearbyOffers: Offer[];
+  comments: Comment[];
+};
+
+const initialState: State = {
+  ...
+  nearbyOffers: [],
+  comments: [],
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+  builder
+      ...
+    .addCase(fetchNearbyOffers.fulfilled, (state, action) => {
+      state.nearbyOffers = action.payload;
+    })
+    .addCase(fetchComments.fulfilled, (state, action) => {
+      state.comments = action.payload;
+    })
+});
+Диспатчим и «забираем» нужные данные по уже знакомой нам схеме на странице Property, так же следует вспомнить несколько нюансов из ТЗ:
+
+Форма с отзывом доступна только авторизованным пользователям — прокидываем authorizationStatus в качестве пропа в компонент ReviewsList
+На карте должно быть отображено 4 метки — одна активная (текущая) и три из предложений неподалёку: формируем массив locations по уже знакомой нам схеме (как мы делали ранее на главной странице Main), а так же передаём проп activeOffer — id текущего объявления
+import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+
+import ReviewList from '../../components/review-list/review-list';
+import Map from '../../components/map/map';
+import Card from '../../components/card/card';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { fetchOffer, fetchNearbyOffers, fetchComments } from '../../store/action';
+import Spinner from '../../components/spinner/spinner';
+import { getStarsWidth } from '../../utils';
+
+const Property = (): JSX.Element | null => {
+  const params = useParams();
+  const dispatch = useAppDispatch();
+  const authorizationStatus = useAppSelector((state) => state.authorizationStatus);
+  const isOfferLoading = useAppSelector((state) => state.isOfferLoading);
+  const offer = useAppSelector((state) => state.offer);
+  const nearbyOffers = useAppSelector((state) => state.nearbyOffers);
+  const comments = useAppSelector((state) => state.comments);
+
+  useEffect(() => {
+    const { id } = params;
+    if (id) {
+      const parsedId = Number(id);
+      dispatch(fetchOffer(parsedId));
+      dispatch(fetchNearbyOffers(parsedId));
+      dispatch(fetchComments(parsedId));
+    }
+  }, [params, dispatch]);
+
+  if (!offer) {
+    return null;
+  }
+
+  if (isOfferLoading) {
+    return <Spinner />;
+  }
+
+  const { id, images, isPremium, title, rating, type, bedrooms, maxAdults, price, goods, host, description, city, location } = offer;
+
+  const locations = nearbyOffers.map(({ id: nearbyId, location: nearbyLocation, }) => ({ id: nearbyId, ...nearbyLocation }));
+  locations.push({ id, ...location });
+
+  return (
+    <div className="page">
+      <header className="header">
+        <div className="container">
+          <div className="header__wrapper">
+            <div className="header__left">
+              <a className="header__logo-link" href="main.html">
+                <img className="header__logo" src="img/logo.svg" alt="6 cities logo" width={81} height={41} />
+              </a>
+            </div>
+            <nav className="header__nav">
+              <ul className="header__nav-list">
+                <li className="header__nav-item user">
+                  <a className="header__nav-link header__nav-link--profile" href="#">
+                    <div className="header__avatar-wrapper user__avatar-wrapper">
+                    </div>
+                    <span className="header__user-name user__name">Oliver.conner@gmail.com</span>
+                    <span className="header__favorite-count">3</span>
+                  </a>
+                </li>
+                <li className="header__nav-item">
+                  <a className="header__nav-link" href="#">
+                    <span className="header__signout">Sign out</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </header>
+      <main className="page__main page__main--property">
+        <section className="property">
+          <div className="property__gallery-container container">
+            <div className="property__gallery">
+              {images.map((image) => (
+                <div key={image} className="property__image-wrapper">
+                  <img className="property__image" src={image} alt="Studio" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="property__container container">
+            <div className="property__wrapper">
+              {isPremium && (
+                <div className="property__mark">
+                  <span>Premium</span>
+                </div>
+              )}
+              <div className="property__name-wrapper">
+                <h1 className="property__name">
+                  {title}
+                </h1>
+                <button className="property__bookmark-button button" type="button">
+                  <svg className="property__bookmark-icon" width={31} height={33}>
+                    <use xlinkHref="#icon-bookmark" />
+                  </svg>
+                  <span className="visually-hidden">To bookmarks</span>
+                </button>
+              </div>
+              <div className="property__rating rating">
+                <div className="property__stars rating__stars">
+                  <span style={{width: getStarsWidth(rating)}} />
+                  <span className="visually-hidden">Rating</span>
+                </div>
+                <span className="property__rating-value rating__value">{rating}</span>
+              </div>
+              <ul className="property__features">
+                <li className="property__feature property__feature--entire">
+                  {type}
+                </li>
+                <li className="property__feature property__feature--bedrooms">
+                  {bedrooms} Bedrooms
+                </li>
+                <li className="property__feature property__feature--adults">
+                  Max {maxAdults} adults
+                </li>
+              </ul>
+              <div className="property__price">
+                <b className="property__price-value">€{price}</b>
+                <span className="property__price-text">&nbsp;night</span>
+              </div>
+              <div className="property__inside">
+                <h2 className="property__inside-title">What's inside</h2>
+                {goods.length > 0 && (
+                  <ul className="property__inside-list">
+                    {goods.map((good) => (
+                      <li key={good} className="property__inside-item">
+                        {good}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="property__host">
+                <h2 className="property__host-title">Meet the host</h2>
+                <div className="property__host-user user">
+                  <div className={`property__avatar-wrapper${host.isPro ? ' property__avatar-wrapper--pro' : ''} user__avatar-wrapper`}>
+                    <img className="property__avatar user__avatar" src={host.avatarUrl} width={74} height={74} alt={host.name} />
+                  </div>
+                  <span className="property__user-name">
+                    {host.name}
+                  </span>
+                  {host.isPro && <span className="property__user-status">Pro</span>}
+                </div>
+                <div className="property__description">
+                  <p className="property__text">
+                    {description}
+                  </p>
+                </div>
+              </div>
+              <ReviewList reviews={comments} authorizationStatus={authorizationStatus} />
+            </div>
+          </div>
+          <Map city={city} locations={locations} activeOffer={id} place="property" />
+        </section>
+        <div className="container">
+          <section className="near-places places">
+            <h2 className="near-places__title">Other places in the neighbourhood</h2>
+            <div className="near-places__list places__list">
+              {nearbyOffers.map((nearbyOffer) => <Card key={nearbyOffer.id} {...nearbyOffer} place="near-places" />)}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+};
+import { AuthorizationStatus } from '../../const';
+import type { Comment } from '../../types/types';
+
+import Form from '../form/form';
+import Review from '../review/review';
+
+type ReviewListProps = {
+    reviews: Comment[];
+    authorizationStatus: AuthorizationStatus;
+}
+
+const ReviewList = ({ reviews, authorizationStatus }: ReviewListProps) => {
+  if (reviews.length === 0) {
+    return (
+      <section className="property__reviews reviews">
+        {authorizationStatus === AuthorizationStatus.Auth && <Form />}
+      </section>
+    );
+  }
+
+  return (
+    <section className="property__reviews reviews">
+      <h2 className="reviews__title">
+          Reviews · <span className="reviews__amount">{reviews.length}</span>
+      </h2>
+      <ul className="reviews__list">
+        {reviews.map((review) => (
+          <Review key={review.id} {...review} />
+        ))}
+      </ul>
+      {authorizationStatus === AuthorizationStatus.Auth && <Form />}
+    </section>
+  );
+};
+Дорабатываем страницу предложения: отправляем нужные данные
+Подготовим новый асинхронный action для отправки комментария на сервер, он будет принимать id предложения, оценку rating и текст комментария comment:
+
+Обратите внимание, что никакие данные о пользователе передавать не нужно, поскольку эту логику мы реализовали ранее с помощью token в заголовках запросов.
+
+export type Comment = {
+    id: number;
+    comment: string;
+    date: string;
+    rating: number;
+    user: User;
+};
+
+export type Offer = {
+    id: number;
+    price: number;
+    rating: number;
+    title: string;
+    isPremium: boolean;
+    isFavorite: boolean;
+    city: City;
+    location: Location;
+    previewImage: string;
+    type: 'apartment' | 'room' | 'house' | 'hotel';
+    bedrooms: number;
+    description: string;
+    goods: [string];
+    host: User;
+    images: [string];
+    maxAdults: number;
+};
+
+export type CommentAuth = Pick<Comment, 'comment' | 'rating'> & Pick<Offer, 'id'>;
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import type { Comment, CommentAuth } from '../types/types';
+import { ApiRoute } from '../const';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+    ...
+  POST_COMMENT: 'offer/post-comment',
+};
+
+export const postComment = createAsyncThunk<Comment[], CommentAuth, { extra: Extra }>(
+  Action.POST_COMMENT,
+  async ({ id, comment, rating }, { extra }) => {
+    const { api } = extra;
+    const { data } = await api.post<Comment[]>(`${ApiRoute.Comments}/${id}`, { comment, rating });
+
+    return data;
+  });
+После успешного отправки, сервер вернет нам новый массив отзывов, включая наш, поэтому просто перетрём старый массив comments на новый:
+
+import { createReducer } from '@reduxjs/toolkit';
+
+import type { Comment } from '../types/types';
+
+import { postComment } from './action';
+
+type State = {
+    ...
+  comments: Comment[];
+};
+
+const initialState: State = {
+  ...
+  comments: [],
+};
+
+export const reducer = createReducer(initialState, (builder) => {
+    .addCase(postComment.fulfilled, (state, action) => {
+      state.comments = action.payload;
+    });
+});
+Обратите внимание, что пока мы не обрабатываем сценарии с серверными ошибками — мы сделаем в одном из последних заданий.
+
+Далее создадим советующий callback на событие onSubmit внутри нашей страницы Property т.к именно она подключена к store, а затем передадим этот callback в качестве пропа в нашу форму:
+
+import ReviewList from '../../components/review-list/review-list';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { postComment } from '../../store/action';
+import { CommentAuth } from '../../types/types';
+
+const Property = (): JSX.Element | null => {
+  const dispatch = useAppDispatch();
+  const offer = useAppSelector((state) => state.offer);
+
+    ...
+
+  if (!offer) {
+    return null;
+  }
+
+  const { id, comments, ... } = offer;
+
+  const onFormSubmit = (formData: Omit<CommentAuth, 'id'>) => {
+    dispatch(postComment({ id, ...formData }));
+  };
+
+  return (
+    <div className="page">
+      ...
+       <ReviewList reviews={comments} authorizationStatus={authorizationStatus} onSubmit={onFormSubmit} />
+      ...
+    </div>
+  );
+};
+import { AuthorizationStatus } from '../../const';
+import type { CommentAuth, Comment } from '../../types/types';
+
+import Form from '../form/form';
+import Review from '../review/review';
+
+type ReviewListProps = {
+    reviews: Comment[];
+    authorizationStatus: AuthorizationStatus;
+    onSubmit: (formData: Omit<CommentAuth, 'id'>) => void
+}
+
+const ReviewList = ({ reviews, authorizationStatus, onSubmit }: ReviewListProps) => {
+  if (reviews.length === 0) {
+    return (
+      <section className="property__reviews reviews">
+        {authorizationStatus === AuthorizationStatus.Auth && <Form onSubmit={onSubmit} />}
+      </section>
+    );
+  }
+
+  return (
+    <section className="property__reviews reviews">
+      <h2 className="reviews__title">
+          Reviews · <span className="reviews__amount">{reviews.length}</span>
+      </h2>
+      <ul className="reviews__list">
+        {reviews.map((review) => (
+          <Review key={review.id} {...review} />
+        ))}
+      </ul>
+      {authorizationStatus === AuthorizationStatus.Auth && <Form onSubmit={onSubmit} />}
+    </section>
+  );
+};
+import type { ChangeEvent, FormEvent } from 'react';
+import { Fragment, useState } from 'react';
+
+import type { CommentAuth } from '../../types/types';
+import { STARS_COUNT } from '../../const';
+
+type FormProps = {
+  onSubmit: (formData: Omit<CommentAuth, 'id'>) => void
+}
+
+const Form = ({ onSubmit }: FormProps) => {
+  const [text, setText] = useState<string>('');
+  const [rating, setRating] = useState<number>(0);
+
+  const handleTextareaChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRating(Number(e.target.value));
+  };
+
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    onSubmit({
+      comment: text,
+      rating
+    });
+  };
+
+  return (
+    <form className="reviews__form form" action="#" method="post" onSubmit={handleFormSubmit}>
+      <label className="reviews__label form__label" htmlFor="review">
+                Your review
+      </label>
+      <div className="reviews__rating-form form__rating">
+        {Array.from({ length: STARS_COUNT}, (_,i) => (
+          <Fragment key={`Star ${STARS_COUNT - i}`}>
+            <input
+              className="form__rating-input visually-hidden"
+              name="rating"
+              defaultValue={STARS_COUNT - i}
+              id={`${STARS_COUNT - i}-stars`}
+              type="radio"
+              checked={STARS_COUNT - i === rating}
+              onChange={handleInputChange}
+            />
+            <label
+              htmlFor={`${STARS_COUNT - i}-stars`}
+              className="reviews__rating-label form__rating-label"
+            >
+              <svg className="form__star-image" width={37} height={33}>
+                <use xlinkHref="#icon-star" />
+              </svg>
+            </label>
+          </Fragment>
+        ))}
+      </div>
+      <textarea
+        className="reviews__textarea form__textarea"
+        id="review">
+        name="review"
+        placeholder="Tell how was your stay, what you like and what can be improved"
+        value={text}
+        onChange={handleTextareaChange}
+      />
+      <div className="reviews__button-wrapper">
+        <p className="reviews__help">
+            To submit review please make sure to set{' '}
+          <span className="reviews__star">rating</span> and describe your stay
+            with at least <b className="reviews__text-amount">50 characters</b>.
+        </p>
+        <button
+          className="reviews__submit form__submit button"
+          type="submit"
+        >
+            Submit
+        </button>
+      </div>
+    </form>
+  );
+};
+Таким образом компонент Form будет вызывать наш callbackonFormSubmit, передавая ему comment и rating, сам же callback будет добавлять к этим данным id предложения, а затем диспатчить наш action, после отправки комментария массив comments изменится — компонент ReviewList перерисуется, но уже с нашим отзывом.
+
+### 8.9. Оптимизируй это (Часть 1)
+
+Пришло время посмотреть на приложение под углом оптимизации. Главной целью этого задания станет практика работы с инструментами разработчика (React DevTools, Redux DevTools) и поиском узких мест в производительности.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Запустите приложение и посмотрите на него со стороны инструментов React DevTools и Redux DevTools. Посмотрите, как выполняется перерисовка компонентов (с включённым флагом «highlight»), посмотрите, как работает Timeline-отладка. Найдите узкие места и попытайтесь устранить их с помощью:
+
+useMemo,
+React.memo,
+useCallback,
+createSelector (из пакета RTK),
+созданием вспомогательных компонентов,
+и так далее.
+Пересмотрите код для взаимодействия с Redux. Разбейте редьюсер в соответствии с предметной областью. Убедитесь, что редьюсеры не содержат побочных эффектов.
+
+### Оптимизируй это (часть 1)
+
+
+Архив проекта
+
+В данном задании мы научимся разбивать наш store на несколько частей для удобной поддержки и расширения.
+
+Пересматриваем поля в хранилище, упрощаем reducer
+Наше хранилище можно разделить на три логические части:
+
+SITE_DATA — кусок с данными о предложениях, отзывах и т.п
+SITE_PROCESS — кусок данных о процессах, происходящих на сайте (типы сортировок, текущий активный город)
+USER_PROCESS — кусок данных о процессах, которые касаются пользователя (авторизация, данные о пользователе)
+export enum StoreSlice {
+  SiteData = 'SITE_DATA',
+  SiteProcess = 'SITE_PROCESS',
+  UserProcess = 'USER_PROCESS',
+}
+Создадим соответствующие слайсы в папке store, разобьем большой reducer на три маленьких:
+
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { SiteData } from '../../types/state';
+import { StoreSlice } from '../../const';
+import { fetchOffers, fetchOffer, fetchNearbyOffers, fetchComments, postComment } from '../action';
+
+const initialState: SiteData = {
+  offers: [],
+  isOffersLoading: false,
+  offer: null,
+  isOfferLoading: false,
+  nearbyOffers: [],
+  comments: [],
+};
+
+export const siteData = createSlice({
+  name: StoreSlice.SiteData,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+      .addCase(fetchOffers.pending, (state) => {
+        state.isOffersLoading = true;
+      })
+      .addCase(fetchOffers.fulfilled, (state, action) => {
+        state.offers = action.payload;
+        state.isOffersLoading = false;
+      })
+      .addCase(fetchOffer.pending, (state) => {
+        state.isOfferLoading = true;
+      })
+      .addCase(fetchOffer.fulfilled, (state, action) => {
+        state.offer = action.payload;
+        state.isOfferLoading = false;
+      })
+      .addCase(fetchOffer.rejected, (state) => {
+        state.isOfferLoading = false;
+      })
+      .addCase(fetchNearbyOffers.fulfilled, (state, action) => {
+        state.nearbyOffers = action.payload;
+      })
+      .addCase(fetchComments.fulfilled, (state, action) => {
+        state.comments = action.payload;
+      })
+      .addCase(postComment.fulfilled, (state, action) => {
+        state.comments = action.payload;
+      });
+  }
+});
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+import type { SiteProcess } from '../../types/state';
+import type { CityName, SortName } from '../../types/types';
+import { cities, CityLocation, StoreSlice } from '../../const';
+
+const initialState: SiteProcess = {
+  city: {
+    name: cities[0],
+    location: CityLocation[cities[0]],
+  },
+  sorting: 'Popular',
+};
+
+export const siteProcess = createSlice({
+  name: StoreSlice.SiteProcess,
+  initialState,
+  reducers: {
+    setCity: (state, action: PayloadAction<CityName>) => {
+      state.city = {
+        name: action.payload,
+        location: CityLocation[action.payload],
+      };
+    },
+    setSorting: (state, action: PayloadAction<SortName>) => {
+      state.sorting = action.payload;
+    }
+  },
+});
+
+export const { setCity, setSorting } = siteProcess.actions;
+Обратите внимание, что синхронные action созданные при помощи createAction переносятся сразу в поле reducers, а затем экспортируются как slice.actions
+
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { UserProcess } from '../../types/state';
+import { fetchUserStatus, loginUser } from '../action';
+import { AuthorizationStatus, StoreSlice } from '../../const';
+
+const initialState: UserProcess = {
+  authorizationStatus: AuthorizationStatus.NoAuth,
+  user: ''
+};
+
+export const userProcess = createSlice({
+  name: StoreSlice.UserProcess,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+      .addCase(fetchUserStatus.fulfilled, (state, action) => {
+        state.user = action.payload.email;
+        state.authorizationStatus = AuthorizationStatus.Auth;
+      })
+      .addCase(fetchUserStatus.rejected, (state) => {
+        state.authorizationStatus = AuthorizationStatus.NoAuth;
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.authorizationStatus = AuthorizationStatus.Auth;
+      });
+  }
+});
+import type { Offer, Comment, City, SortName, User } from './types';
+import { AuthorizationStatus } from '../const';
+
+export type SiteData = {
+    offers: Offer[];
+    isOffersLoading: boolean;
+    offer: Offer | null;
+    isOfferLoading: boolean;
+    nearbyOffers: Offer[];
+    comments: Comment[];
+};
+
+export type SiteProcess = {
+    city: City;
+    sorting: SortName;
+}
+
+export type UserProcess = {
+    authorizationStatus: AuthorizationStatus;
+    user: User['email'];
+}
+После разбивания одного большого reducer на несколько маленьких, нам следует их как-то соединить с нашим store — воспользуемся combineReducers:
+
+import { combineReducers } from '@reduxjs/toolkit';
+
+import { siteData } from './site-data/site-data';
+import { siteProcess } from './site-process/site-process';
+import { userProcess } from './user-process/user-process';
+import { StoreSlice } from '../const';
+
+export const rootReducer = combineReducers({
+  [StoreSlice.SiteData]: siteData.reducer,
+  [StoreSlice.SiteProcess]: siteProcess.reducer,
+  [StoreSlice.UserProcess]: userProcess.reducer,
+});
+Обратите внимание, что на самом деле в конечном у нас будет один reducer, как и раньше, но теперь поддержка и его расширение стали намного проще — каждому логическому кусочку будет соответствовать своё поле в store.
+
+Готово, однако теперь эти данные нужно забирать по новым полям, познакомимся с новым понятием — selectors. Помните те анонимные функции, которые мы передавали в useAppSelector хук? Это и есть селекторы, давайте создадим для каждого слайса свои селекторы, чтобы в дальнейшем использовать их в наших компонентах:
+
+import type { State } from '../../types/state';
+import type { Offer, Comment } from '../../types/types';
+import { Comparator, StoreSlice } from '../../const';
+import { getCity, getSorting } from '../site-process/selectors';
+
+export const getIsOffersLoading = ({ [StoreSlice.SiteData]: SITE_DATA }: State): boolean => SITE_DATA.isOffersLoading;
+export const getOffers = ({ [StoreSlice.SiteData]: SITE_DATA}: State): Offer[] => SITE_DATA.offers;
+
+export const getIsOfferLoading = ({ [StoreSlice.SiteData]: SITE_DATA }: State): boolean => SITE_DATA.isOfferLoading;
+export const getOffer = ({ [StoreSlice.SiteData]: SITE_DATA }: State): Offer | null => SITE_DATA.offer;
+
+export const getNearbyOffers = ({ [StoreSlice.SiteData]: SITE_DATA }: State): Offer[] => SITE_DATA.nearbyOffers;
+export const getComments = ({ [StoreSlice.SiteData]: SITE_DATA }: State): Comment[] => SITE_DATA.comments;
+import { StoreSlice } from '../../const';
+import type { State } from '../../types/state';
+import type { City, SortName } from '../../types/types';
+
+export const getCity = ({ [StoreSlice.SiteProcess]: SITE_PROCESS }: State): City => SITE_PROCESS.city;
+export const getSorting = ({ [StoreSlice.SiteProcess]: SITE_PROCESS }: State): SortName => SITE_PROCESS.sorting;
+import { AuthorizationStatus, StoreSlice } from '../../const';
+import type { State } from '../../types/state';
+import type { User } from '../../types/types';
+
+export const getAuthorizationStatus = ({ [StoreSlice.UserProcess]: USER_PROCESS }: State): AuthorizationStatus => USER_PROCESS.authorizationStatus;
+export const getUser = ({ [StoreSlice.UserProcess]: USER_PROCESS }: State): User['email'] => USER_PROCESS.user;
+Теперь обновим все наши компоненты, передав нужные селекторы в useAppSelector, например:
+
+import { Link } from 'react-router-dom';
+
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+import { getAuthorizationStatus, getUser } from '../../store/user-process/selectors';
+
+const Header = () => {
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+  const user = useAppSelector(getUser);
+
+  return (
+    <header className="header">
+      <div className="container">
+        <div className="header__wrapper">
+          <div className="header__left">
+            <Link className="header__logo-link header__logo-link--active" to={AppRoute.Root}>
+              <img
+                className="header__logo"
+                src="img/logo.svg"
+                alt="6 cities logo"
+                width="81"
+                height="41"
+              />
+            </Link>
+          </div>
+          <nav className="header__nav">
+            <ul className="header__nav-list">
+              {authorizationStatus === AuthorizationStatus.Auth && (
+                <li className="header__nav-item user">
+                  <Link
+                    className="header__nav-link header__nav-link--profile"
+                    to={AppRoute.Favorites}
+                  >
+                    <div className="header__avatar-wrapper user__avatar-wrapper"></div>
+                    <span className="header__user-name user__name">
+                      {user}
+                    </span>
+                    <span className="header__favorite-count">3</span>
+                  </Link>
+                </li>)}
+              <li className="header__nav-item">
+                <Link className="header__nav-link" to={AppRoute.Login}>
+                  <span className="header__signout">{authorizationStatus === AuthorizationStatus.Auth ? 'Sign out' : 'Sign in'}</span>
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+};
+Займёмся оптимизацией
+Первое о чём можно позаботиться — это сложные селекторы, у нас есть один такой, который фильтрует данные по городам, а затем сортирует. Этот селектор будет выполняться на каждом изменении store, однако его можно мемоизировать при помощи функции createSelector:
+
+import { createSelector } from '@reduxjs/toolkit';
+
+import type { State } from '../../types/state';
+import type { Offer } from '../../types/types';
+import { Comprator, StoreSlice } from '../../const';
+import { getCity, getSorting } from '../site-process/selectors';
+
+export const getOffers = ({ [StoreSlice.SiteData]: SITE_DATA}: State): Offer[] => SITE_DATA.offers;
+
+export const selectOffers = createSelector(
+  [getOffers, getCity, getSorting],
+  (offers, city, sorting) => offers.filter((offer) => offer.city.name === city.name).sort(Comprator[sorting])
+);
+Второе, о чем следует подумать — ререндеринг множественных элементов, например, в компоненте Header — при выборе нового города перерисовывается весь список, хотя по логике должно перерисовываться только два пункта — новый активный и тот, что был активным до этого. Сделать это мы можем при помощи React.memo — HOC функции, в которую будет оборачиваться наш компонент. При совпадении новых props к старым компонент перестанет ререндриться. Рассмотрим, какие props есть у компонента элемента списка City:
+
+name — строка
+isActive — булево значение
+onClick — функция callback
+Поскольку memo сравнивает значения shallow (по ссылке), нужно убедиться, чтобы ссылка на onClick не менялась между рендерами. В этом нам поможет хук useCallback:
+
+import { useCallback } from 'react';
+
+import type { CityName } from '../../types/types';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setCity } from '../../store/site-process/site-process';
+import City from '../city/city';
+import { cities } from '../../const';
+import { getCity } from '../../store/site-process/selectors';
+
+const CitiesList = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+  const activeCity = useAppSelector(getCity);
+
+  const handleCityClick = useCallback((name: CityName) => {
+    dispatch(setCity(name));
+  }, [dispatch]);
+
+  return (
+    <ul className="locations__list tabs__list">
+      {cities.map((city) => (
+        <City key={city} name={city} isActive={city === activeCity.name} onClick={handleCityClick} />
+      ))}
+    </ul>
+  );
+};
+Убедимся, что элементы списка теперь не перерендриваются лишний раз, а store разделён на несколько слайсов:
+

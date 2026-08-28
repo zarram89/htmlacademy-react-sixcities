@@ -4928,3 +4928,759 @@ const Property = (): JSX.Element | null => {
   );
 };
 Проверяем избранные предложения, добавление в избранное, а так же пустую страницу объявлений, а бонусом — оптимизацию Card:
+
+### 9.7. Прикрой меня тестом
+
+В этом задании мы начнём практиковаться в написании автоматизированных тестов. Всё необходимое окружение у нас установлено и настроено. Дело остаётся за написанием тестов.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Напишите тесты для всех редьюсеров.
+
+Напишите тесты для асинхронных операций. Тестировать асинхронные операции, где есть взаимодействие с внешними зависимостями, такими как localStorage, пока не нужно.
+
+Воспользуйтесь React Testing Library и напишите тесты для простых компонентов. Простые компоненты — компоненты, в которых не используются хуки эффектов, нет взаимодействия с не React-компонентами (карты, плееры и так далее). Ограничьтесь проверками на корректность отрисовки. Взаимодействовать с элементами (эмулировать нажатие на кнопки и так далее) — тоже не нужно. Это тема следующего раздела.
+
+Тестировать HOC, middleware, собственные хуки пока не нужно. К ним вернёмся в следующем задании. Создавать снепшот-тесты не нужно. В демо-проекте они представлены лишь для ознакомления.
+
+Напишите тесты для проверки маршрутизации в приложении.
+
+### Прикрой меня тестом
+Архив проекта
+
+В этом задании вы научитесь тестировать логику store, а так же базовые компоненты.
+
+Тесты обычно лежат в той же папке, что и тестируемый файл с постфиксом .test, например, something.test.tsx. Для тестирования будем использовать библиотеку jest, устанавливать и импортировать её не нужно, всё для написания тестов в проекте уже настроено за вас.
+
+Покрываем тестом редьюсеры
+За что люди любят тестировать редьюсеры? Их очень просто и понятно писать — передаём action в reducer и говорим, как должен был поменяться наш store,, а если есть расхождения, то что-то пошло не так.
+
+Начнем писать тесты со слайса SiteProcess т.к все экшены в нём синхронные и отсутствуют какие-либо запросы к серверу. Тест будет проверять три сценария:
+
+Базовый — редьюсер остается неизменным при передачи неизвестных экшенов
+Установка города
+Установка типа сортировки
+import type { SortName } from '../../types/types';
+
+import { siteProcess, setCity, setSorting } from './site-process';
+import { cities, CityLocation, Sorting } from '../../const';
+
+describe('Reducer: userProcess', () => {
+  it('without additional parameters should return initial state', () => {
+    expect(siteProcess.reducer(void 0, { type: 'UNKNOWN_ACTION' }))
+      .toEqual({
+        city: {
+          name: cities[0],
+          location: CityLocation[cities[0]],
+        },
+        sorting: Sorting.Popular
+      });
+  });
+
+  it('should set city by a given name', () => {
+    const state = {
+      city: {
+        name: cities[0],
+        location: CityLocation[cities[0]],
+      },
+      sorting: Sorting.Popular as SortName
+    };
+
+    expect(siteProcess.reducer(state, setCity(cities[1])))
+      .toEqual({
+        city: {
+          name: cities[1],
+          location: CityLocation[cities[1]],
+        },
+        sorting: Sorting.Popular
+      });
+  });
+
+  it('should set sorting by a given name', () => {
+    const state = {
+      city: {
+        name: cities[0],
+        location: CityLocation[cities[0]],
+      },
+      sorting: Sorting.Popular as SortName
+    };
+
+    expect(siteProcess.reducer(state, setSorting(Object.keys(Sorting)[1] as SortName)))
+      .toEqual({
+        city: {
+          name: cities[0],
+          location: CityLocation[cities[0]],
+        },
+        sorting: Object.keys(Sorting)[1]
+      });
+  });
+});
+Далее протестируем слайсы с асинхронными действиями, воспользовавшись, созданными экшенами и их сигнатурами pending, fullfilled и reejcted:
+
+import { userProcess } from './user-process';
+import { AuthorizationStatus } from '../../const';
+import { fetchUserStatus, loginUser } from '../action';
+
+const email = 'abc123@gmail.com';
+
+describe('Reducer: userProcess', () => {
+  it('without additional parameters should return initial state', () => {
+    expect(userProcess.reducer(void 0, { type: 'UNKNOWN_ACTION' }))
+      .toEqual({
+        authorizationStatus: AuthorizationStatus.Unknown,
+        user: ''
+      });
+  });
+
+  it('should fetch authorization status', () => {
+    const state = {
+      authorizationStatus: AuthorizationStatus.Unknown,
+      user: ''
+    };
+
+    expect(userProcess.reducer(state, { type: fetchUserStatus.rejected.type }))
+      .toEqual({
+        authorizationStatus: AuthorizationStatus.NoAuth,
+        user: ''
+      });
+
+    expect(userProcess.reducer(state, { type: fetchUserStatus.fulfilled.type, payload: email }))
+      .toEqual({
+        authorizationStatus: AuthorizationStatus.Auth,
+        user: email
+      });
+  });
+
+  it('should login user', () => {
+    const state = {
+      authorizationStatus: AuthorizationStatus.NoAuth,
+      user: ''
+    };
+
+    expect(userProcess.reducer(state, { type: loginUser.fulfilled.type, payload: email }))
+      .toEqual({
+        authorizationStatus: AuthorizationStatus.Auth,
+        user: email
+      });
+  });
+});
+И напоследок самый большой слайс — SiteData. Алгоритм аналогичен предыдущему, однако, добавим немного моков:
+
+import type { Offer, User, Comment } from '../../types/types';
+
+import { siteData } from './site-data';
+import { cities, CityLocation } from '../../const';
+import { fetchComments, fetchFavoriteOffers, fetchNearbyOffers, fetchOffer, fetchOffers, postComment, postFavorite } from '../action';
+
+const user: User = {
+  id: 1,
+  name: 'Max',
+  avatarUrl: 'img/user-1.jpg',
+  isPro: false,
+  email: 'max@gmail.com'
+};
+
+const offers: Offer[] = [
+  {
+    id: 1,
+    price: 120,
+    rating: 4.0,
+    title: 'Offer 1',
+    isPremium: true,
+    isFavorite: false,
+    city: {
+      name: cities[0],
+      location: CityLocation[cities[0]]
+    },
+    location: CityLocation[cities[0]],
+    previewImage: 'img/1.jpg',
+    description: 'Nice house',
+    type: 'hotel',
+    goods: ['dish washer', 'wi-fi'],
+    bedrooms: 2,
+    host: user,
+    maxAdults: 3,
+    images: ['img/1.jpg', 'img/2.jpg', 'img/3.jpg']
+  }
+];
+
+const comments: Comment[] = [
+  {
+    id: 1,
+    comment: 'Hello!',
+    date: '11-10-2017',
+    rating: 1.0,
+    user
+  }
+];
+
+describe('Reducer: siteData', () => {
+  it('without additional parameters should return initial state', () => {
+    expect(siteData.reducer(void 0, { type: 'UNKNOWN_ACTION' }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+  });
+
+  it('should fetch offers', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: fetchOffers.pending.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: true,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchOffers.fulfilled.type, payload: offers }))
+      .toEqual({
+        offers,
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchOffers.rejected.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+  });
+
+  it('should fetch offer', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: fetchOffer.pending.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: true,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchOffer.fulfilled.type, payload: offers[0] }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: offers[0],
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchOffer.rejected.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+  });
+
+  it('should fetch favorite offers', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: fetchFavoriteOffers.pending.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: true,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchFavoriteOffers.fulfilled.type, payload: offers }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: offers,
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    expect(siteData.reducer(state, { type: fetchFavoriteOffers.rejected.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+  });
+
+  it('should fetch nearby offers', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: fetchNearbyOffers.fulfilled.type, payload: offers }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: offers,
+        comments: [],
+      });
+  });
+
+  it('should fetch nearby comments', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: fetchComments.fulfilled.type, payload: comments }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments,
+      });
+  });
+
+  it('should post comment', () => {
+    const state = {
+      offers: [],
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: postComment.fulfilled.type, payload: comments }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments,
+      });
+  });
+
+  it('should post favorite', () => {
+    const state = {
+      offers,
+      isOffersLoading: false,
+      offer: null,
+      isOfferLoading: false,
+      favoriteOffers: [] as Offer[],
+      isFavoriteOffersLoading: false,
+      nearbyOffers: [],
+      comments: [],
+    };
+
+    expect(siteData.reducer(state, { type: postFavorite.fulfilled.type, payload: {...offers[0], isFavorite: true } }))
+      .toEqual({
+        offers: [{...offers[0], isFavorite: true }],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [{...offers[0], isFavorite: true }],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+
+    state.offers = [{...offers[0], isFavorite: true }];
+    state.favoriteOffers = [{...offers[0], isFavorite: true }];
+
+    expect(siteData.reducer(state, { type: postFavorite.fulfilled.type, payload: {...offers[0], isFavorite: false } }))
+      .toEqual({
+        offers,
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+      });
+  });
+});
+Тестируем асинхронные экшены
+С экшенами всё сложнее — это асинхронные операции, которые обрабатываются thunk, к тому же конечный сервер может быть недоступен, но наши тесты должны по прежнему проходить — ведь это не наша вина, что сервер в данный момент не отвечает. Поэтому здесь следует замокать ответ от сервера — эмулировать его работу, а так же имплементировать работу store, ведь единственный способ проверить action — задиспатчить его. В данных двух задачах нам помогут пакеты axios-mock-adapter и @jedmao/redux-mock-store соответственно. Рассмотрим пример протестировав экшн проверки статуса авторизации:
+
+import type { Action } from 'redux';
+import type { State } from '../types/state';
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+
+import thunk, { ThunkDispatch } from 'redux-thunk';
+import MockAdapter from 'axios-mock-adapter';
+import { configureMockStore } from '@jedmao/redux-mock-store';
+
+import { createAPI } from '../api';
+import { ApiRoute } from '../const';
+import { fetchUserStatus } from './action';
+
+describe('Async actions', () => {
+  const api = createAPI();
+  const mockAPI = new MockAdapter(api);
+  const middlewares = [thunk.withExtraArgument({ api })];
+
+  const mockStore = configureMockStore<
+      State,
+      Action,
+      ThunkDispatch<State, { api: AxiosInstance, history: History }, Action>
+    >(middlewares);
+
+  it('fetchUserStatus should be fullfilled when server returns 200', async () => {
+    const store = mockStore();
+
+    mockAPI
+      .onGet(ApiRoute.Login)
+      .reply(200, {});
+    expect(store.getActions()).toEqual([]);
+
+    await store.dispatch(fetchUserStatus());
+
+    const actions = store.getActions().map(({ type }) => type);
+
+    expect(actions).toEqual([
+      fetchUserStatus.pending.type,
+      fetchUserStatus.fulfilled.type
+    ]);
+  });
+
+  it('fetchUserStatus should be rejected when server returns 401', async () => {
+    const store = mockStore();
+
+    mockAPI
+      .onGet(ApiRoute.Login)
+      .reply(401, {});
+
+    expect(store.getActions()).toEqual([]);
+
+    await store.dispatch(fetchUserStatus());
+
+    const actions = store.getActions().map(({ type }) => type);
+
+    expect(actions).toEqual([
+      fetchUserStatus.pending.type,
+      fetchUserStatus.rejected.type
+    ]);
+  });
+});
+Таким образом мы убедились, что при определенных ответах от сервера в store передаются нужные экшены с нужными сигнатурами, а дальнейшую логику (обработки этих экшенов редьюсером) мы уже проверили в предыдущих тестах.
+
+Тестируем компоненты
+Помимо теста хранилища стоит научиться тестировать компоненты. В тестировании нам поможет @testing-library/react, библиотека будет маунтить наш компонент, передавая соответствующие пропы, имитируя отрисовку в DOM, а мы уже будем проверять то, какие классы содержит компонент, какой текст находится внутри него и т. п.
+
+Возьмем, например, простой компонент City — он принимает только пропы и не обладает сайд-эффектами. Проверим, что компонент действительно содержит в себе название передаваемого города, а так же активный класс, если это требуется. Помимо этого мы можем узнать был ли вызван передаваемый callback и с какими аргументами:
+
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+import City from './city';
+import { cities } from '../../const';
+
+describe('Component: City', () => {
+  it('should be rendered correctly', () => {
+    const onClick = jest.fn();
+
+    render(
+      <City
+        name={cities[0]}
+        isActive
+        onClick={onClick}
+      />);
+
+    expect(screen.getByText(cities[0])).toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveClass('tabs__item--active');
+  });
+
+  it('onClick should be called when user has chosen a city', async () => {
+    const onClick = jest.fn();
+
+    render(
+      <City
+        name={cities[0]}
+        isActive={false}
+        onClick={onClick}
+      />);
+
+    await userEvent.click(screen.getByRole('link'));
+
+    expect(onClick).toBeCalledWith(cities[0]);
+  });
+});
+Тестируем маршрутизацию
+С маршрутизацией дела обстоят абсолютно так же, как и в предыдущих тестах — мокаем store и api (потому что на странице Property делается запрос к серверу), но дополнительно используем history для смены страницы, а далее просто проверяем, что должно находиться на странице:
+
+import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureMockStore } from '@jedmao/redux-mock-store';
+import thunk from 'redux-thunk';
+import MockAdapter from 'axios-mock-adapter';
+
+import App from './app';
+import history from '../../history';
+import { ApiRoute, AppRoute, AuthorizationStatus, cities, CityLocation, Sorting, StoreSlice } from '../../const';
+import { createAPI } from '../../api';
+
+const user = {
+  id: 1,
+  name: 'Max',
+  avatarUrl: 'img/user-1.jpg',
+  isPro: false,
+  email: 'max@gmail.com'
+};
+
+const offers = [
+  {
+    id: 1,
+    price: 120,
+    rating: 4.0,
+    title: 'Offer 1',
+    isPremium: true,
+    isFavorite: true,
+    city: {
+      name: cities[0],
+      location: CityLocation[cities[0]]
+    },
+    location: CityLocation[cities[0]],
+    previewImage: 'img/1.jpg',
+    description: 'Nice house',
+    type: 'hotel',
+    goods: ['dish washer', 'wi-fi'],
+    bedrooms: 2,
+    host: user,
+    maxAdults: 3,
+    images: ['img/1.jpg', 'img/2.jpg', 'img/3.jpg']
+  }
+];
+
+const comments = [
+  {
+    id: 1,
+    comment: 'Hello!',
+    date: '11-10-2017',
+    rating: 1.0,
+    user
+  }
+];
+
+const api = createAPI();
+const mockAPI = new MockAdapter(api);
+const middlewares = [thunk.withExtraArgument({ api })];
+
+mockAPI
+  .onGet(`${ApiRoute.Offers}/1`)
+  .reply(200, offers[0]);
+
+const mockStore = configureMockStore(middlewares);
+
+const store = mockStore({
+  [StoreSlice.UserProcess]: {
+    authorizationStatus: AuthorizationStatus.Auth,
+    user: user.email
+  },
+  [StoreSlice.SiteProcess]: {
+    sorting: Sorting.Popular,
+    city: {
+      name: cities[0],
+      location: CityLocation[cities[0]]
+    }
+  },
+  [StoreSlice.SiteData]: {
+    offers,
+    isOffersLoading: false,
+    offer: offers[0],
+    isOfferLoading: false,
+    favoriteOffers: offers,
+    isFavoriteOffersLoading: false,
+    nearbyOffers: [],
+    comments,
+  },
+});
+
+const fakeApp = (
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+
+describe('Application Routing', () => {
+  it('should render "Main" when user navigates to "/"', () => {
+    history.push(AppRoute.Root);
+
+    render(fakeApp);
+
+    expect(screen.getByText(user.email)).toBeInTheDocument();
+    expect(screen.getByText('Sign out')).toBeInTheDocument();
+    expect(screen.getByText(`1 places to stay in ${cities[0]}`)).toBeInTheDocument();
+    expect(screen.getByText(Sorting.Popular)).toBeInTheDocument();
+    expect(screen.getByText('Premium')).toBeInTheDocument();
+    expect(screen.getByText(offers[0].title)).toBeInTheDocument();
+
+  });
+
+  it('should render "Login" when user navigates to "/login"', () => {
+    history.push(AppRoute.Login);
+
+    render(fakeApp);
+
+    expect(screen.getByRole('heading')).toHaveTextContent('Sign in');
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  it('should render "Favorites" when user navigates to "/favorites"', () => {
+    history.push(`${AppRoute.Favorites}`);
+
+    render(fakeApp);
+
+    expect(screen.getByText(offers[0].title)).toBeInTheDocument();
+    expect(screen.getByText(offers[0].type)).toBeInTheDocument();
+    expect(screen.getByRole('button')).toHaveClass('place-card__bookmark-button--active');
+    expect(screen.getByRole('img', { name: 'Place' })).toHaveAttribute('src', offers[0].previewImage);
+  });
+
+  it('should render "NotFound" when user navigates to "/not-exists"', () => {
+    history.push('/not-exists');
+
+    render(fakeApp);
+
+    expect(screen.getByText('Not Found 404')).toBeInTheDocument();
+  });
+
+  it('should render "Property" when user navigates to "/offer/:id"', () => {
+    history.push(`${AppRoute.Property}/1`);
+
+    render(fakeApp);
+
+    expect(screen.getByText(offers[0].title)).toBeInTheDocument();
+    expect(screen.getByText(offers[0].description)).toBeInTheDocument();
+    expect(screen.getByText(offers[0].type)).toBeInTheDocument();
+  });
+});
+Обратите внимание, что тесты уже помогают нам находить ошибки, например, чтобы элементы формы на странице Login находились корректно — нам пришлось добавить атрибуты for для лейблов, которые относятся к инпутам.
+
+const Login = (): JSX.Element => {
+  ...
+  return (
+         ...
+      <div className="login__input-wrapper form__input-wrapper">
+        <label className="visually-hidden" htmlFor="email">E-mail</label>
+        <input
+          id="email">
+          className="login__input form__input"
+          type="email"
+          name="email"
+          placeholder="Email"
+          required
+        />
+      </div>
+      <div className="login__input-wrapper form__input-wrapper">
+        <label className="visually-hidden" htmlFor="password">Password</label>
+        <input
+          id="password">
+          className="login__input form__input"
+          type="password"
+          name="password"
+          placeholder="Password"
+          required
+        />
+      </div>
+      ...
+  );
+};
+Оставшиеся асинхронные экшены и компоненты стоит протестировать по аналогии.
+
+

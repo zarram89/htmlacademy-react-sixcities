@@ -5823,3 +5823,1095 @@ describe('Hook: useMap', () => {
   });
 });
 Первое что мы сделали — создали тестовый компонент DummyComponent, в котором будет отрисовываться наша карта, а так же передали все данные для города. Убедились, что в исходном состоянии компонент пуст, а после запустили хук useMap, передав в него ref объект со ссылкой на наш компонент-контейнер. Далее выполнили две проверки — что возвращаемое значение действительно является картой и наш контейнер теперь не пуст.
+
+### 9.9. Последнее испытание. Часть 2
+
+Вот мы и добрались до самого последнего задания. Оно одинаково для двух проектов и заключается в доработке проекта до соответствия техническому заданию.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Ознакомьтесь с техническим заданием к проекту. Реализуйте в проекте недостающую функциональность.
+
+Если при выполнении предыдущего шага были созданы или обновлены компоненты, не забудьте написать для них автоматизированные тесты.
+
+### Последнее испытание (часть 2)
+Архив проекта
+
+В данном задании мы окончательно закончим работу над нашим проект, чтобы он соответствовал критериям и ТЗ.
+
+Мелкие правки «по макету»
+Обратим внимание, что на странице предложения не обрабатывается ситуация, когда количество maxAdults или bedrooms равно единице т.е число единственное, заведем вспомогательную функцию и обернем в нее maxAdults и bedrooms на странице Property:
+
+export const pluralize = (str: string, count: number) => count === 1 ? str : `${str}s`;
+<li className="property__feature property__feature--bedrooms">
+    {bedrooms} {pluralize('Bedroom', bedrooms)}
+</li>
+<li className="property__feature property__feature--adults">
+  Max {maxAdults} {pluralize('adult', maxAdults)}
+</li>
+Так же type объявления стоит писать с большой буквы, добавим вспомогательную функцию, которая будет начинать слово с заглавной буквы:
+
+export const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+Добавим изменения на страницу Property, а так же карточку Card:
+
+<p className="place-card__type">{capitalize(type)}</p>
+<li className="property__feature property__feature--entire">
+  {capitalize(type)}
+</li>
+А еще рейтинг в звездочках следует округлять в ближайшую сторону до целых:
+
+export const getStarsWidth = (rating: number) =>
+  `${(MAX_PERCENT_STARS_WIDTH * Math.round(rating)) / STARS_COUNT}%`;
+Замечания eslint
+В консоли по прежнему остались замечания на не валидные ссылки href="#", т.к данные элементы не являются ссылками (не выполняют переходов), перепишем их на div, но с ролью кнопки, так мы сохраним нужные стили и не испортим семантику:
+
+import { memo } from 'react';
+
+import type { CityName } from '../../types/types';
+
+type CityProps = {
+    name: CityName,
+    isActive: boolean;
+    onClick: (name: CityName) => void;
+}
+
+const City = ({ name, isActive, onClick }: CityProps): JSX.Element => {
+  const handleCityClick = () => {
+    onClick(name);
+  };
+
+  return (
+    <li className="locations__item">
+      <div className={`locations__item-link tabs__item${isActive ? ' tabs__item--active' : ''}`} onClick={handleCityClick} role="button" tabIndex={0}>
+        <span>{name}</span>
+      </div>
+    </li>
+  );
+};
+
+export default memo(City);
+И не забываем про обновление теста — теперь мы ищем элемент не по роли link, а button:
+
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+import City from './city';
+import { cities } from '../../const';
+
+describe('Component: City', () => {
+  it('should be rendered correctly', () => {
+    const onClick = jest.fn();
+
+    render(
+      <City
+        name={cities[0]}
+        isActive
+        onClick={onClick}
+      />);
+
+    expect(screen.getByText(cities[0])).toBeInTheDocument();
+    expect(screen.getByRole('button')).toHaveClass('tabs__item--active');
+  });
+
+  it('onClick should be called when user has chosen a city', async () => {
+    const onClick = jest.fn();
+
+    render(
+      <City
+        name={cities[0]}
+        isActive={false}
+        onClick={onClick}
+      />);
+
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(onClick).toBeCalledWith(cities[0]);
+  });
+});
+Добавляем логику в форму отправки комментария
+В ТЗ сказано, что кнопка отправки комментария должна быть недоступна, если длина текста менее 50 и более 300 символов, а так же не выбран рейтинг, реализуем соответствующую логику:
+
+export const MIN_COMMENT_LENGTH = 50;
+export const MAX_COMMENT_LENGTH = 300;
+type FormProps = {
+  onSubmit: (formData: Omit<CommentAuth, 'id'>) => void;
+}
+
+const Form = ({ onSubmit }: FormProps) => {
+  const [text, setText] = useState<string>('');
+  const [rating, setRating] = useState<number>(0);
+
+  ...
+
+  return (
+    <form className="reviews__form form" action="#" method="post">
+          ...
+        <button
+          disabled={!rating || (text.length < MIN_COMMENT_LENGTH || text.length > MAX_COMMENT_LENGTH)}
+          className="reviews__submit form__submit button"
+          type="submit"
+        >
+            Submit
+        </button>
+      ...
+    </form>
+  );
+};
+Далее сказано, что форма должна быть заблокирована в момент отправки, а после успешной отправки должна очищаться. С этим немного сложнее, придётся добавить в store дополнительный флаг commentStatus:
+
+export enum SubmitStatus {
+  Still = 'STILL',
+  Pending = 'PENDING',
+  Fullfilled = 'FULLFILLED',
+  Rejected = 'REJECTED'
+}
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { SiteData } from '../../types/state';
+import { StoreSlice, SubmitStatus } from '../../const';
+import { postComment } from '../action';
+
+const initialState: SiteData = {
+    ...
+  comments: [],
+  commentStatus: SubmitStatus.Still,
+};
+
+export const siteData = createSlice({
+  name: StoreSlice.SiteData,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+        ...
+      .addCase(postComment.pending, (state) => {
+        state.commentStatus = SubmitStatus.Pending;
+      })
+      .addCase(postComment.fulfilled, (state, action) => {
+        state.comments = action.payload;
+        state.commentStatus = SubmitStatus.Fullfilled;
+      })
+      .addCase(postComment.rejected, (state) => {
+        state.commentStatus = SubmitStatus.Rejected;
+      })
+  }
+});
+import { createSelector } from '@reduxjs/toolkit';
+
+import type { State } from '../../types/state';
+import { StoreSlice, SubmitStatus } from '../../const';
+
+export const getCommentStatus = ({ [StoreSlice.SiteData]: SITE_DATA }: State): SubmitStatus => SITE_DATA.commentStatus;
+И не забываем обновить наши тесты:
+
+import type { Comment } from '../../types/types';
+
+import { siteData } from './site-data';
+import { SubmitStatus } from '../../const';
+import {  postComment } from '../action';
+
+...
+
+const comments: Comment[] = [
+  {
+    id: 1,
+    comment: 'Hello!',
+    date: '11-10-2017',
+    rating: 1.0,
+    user
+  }
+];
+
+...
+
+it('should post comment', () => {
+    const state = {
+      ...
+      comments: [],
+      commentStatus: SubmitStatus.Still,
+    };
+
+    expect(siteData.reducer(state, { type: postComment.pending.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+        commentStatus: SubmitStatus.Pending,
+      });
+
+    expect(siteData.reducer(state, { type: postComment.fulfilled.type, payload: comments }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments,
+        commentStatus: SubmitStatus.Fullfilled,
+      });
+
+    expect(siteData.reducer(state, { type: postComment.rejected.type }))
+      .toEqual({
+        offers: [],
+        isOffersLoading: false,
+        offer: null,
+        isOfferLoading: false,
+        favoriteOffers: [],
+        isFavoriteOffersLoading: false,
+        nearbyOffers: [],
+        comments: [],
+        commentStatus: SubmitStatus.Rejected,
+      });
+  });
+Прокидываем нужный флаг в качестве пропа со страницы Property:
+
+import { useAppSelector } from '../../hooks';
+import { getCommentStatus } from '../../store/site-data/selectors';
+
+const Property = (): JSX.Element | null => {
+    ...
+    const commentStatus = useAppSelector(getCommentStatus);
+    ...
+
+return (
+    ...
+      <ReviewList ... submitStatus={commentStatus} />
+  ...
+  );
+}
+import { SubmitStatus } from '../../const';
+
+import Form from '../form/form';
+
+type ReviewListProps = {
+    ...
+    submitStatus: SubmitStatus;
+}
+
+const ReviewList = ({ ..., submitStatus }: ReviewListProps) => (
+  <section className="property__reviews reviews">
+    <Form ... submitStatus={submitStatus} />}
+  </section>
+);
+Обновим компонент — при помощи хука useEffect будем очищать заполненные поля, а при флаге Fullfilled, а при помощи флага Pending блокировать их:
+
+import type { ChangeEvent, FormEvent } from 'react';
+import { Fragment, useState, useEffect } from 'react';
+
+import type { CommentAuth } from '../../types/types';
+import { STARS_COUNT, MIN_COMMENT_LENGTH, MAX_COMMENT_LENGTH, SubmitStatus } from '../../const';
+
+type FormProps = {
+  onSubmit: (formData: Omit<CommentAuth, 'id'>) => void;
+  submitStatus: SubmitStatus;
+}
+
+const Form = ({ onSubmit, submitStatus }: FormProps) => {
+  const [text, setText] = useState<string>('');
+  const [rating, setRating] = useState<number>(0);
+  const isSubmiting = submitStatus === SubmitStatus.Pending;
+
+  const handleTextareaChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setRating(Number(e.target.value));
+  };
+
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    onSubmit({
+      comment: text,
+      rating
+    });
+  };
+
+  useEffect(() => {
+    if (submitStatus === SubmitStatus.Fullfilled) {
+      setText('');
+      setRating(0);
+    }
+
+  }, [submitStatus]);
+
+  return (
+    <form className="reviews__form form" action="#" method="post" onSubmit={handleFormSubmit}>
+      <label className="reviews__label form__label" htmlFor="review">
+        Your review
+      </label>
+      <div className="reviews__rating-form form__rating">
+        {Array.from({ length: STARS_COUNT}, (_,i) => (
+          <Fragment key={`Star ${STARS_COUNT - i}`}>
+            <input
+              className="form__rating-input visually-hidden"
+              name="rating"
+              defaultValue={STARS_COUNT - i}
+              id={`${STARS_COUNT - i}-stars`}
+              type="radio"
+              checked={STARS_COUNT - i === rating}
+              onChange={handleInputChange}
+              disabled={isSubmiting}
+            />
+            <label
+              htmlFor={`${STARS_COUNT - i}-stars`}
+              className="reviews__rating-label form__rating-label"
+            >
+              <svg className="form__star-image" width={37} height={33}>
+                <use xlinkHref="#icon-star" />
+              </svg>
+            </label>
+          </Fragment>
+        ))}
+      </div>
+      <textarea
+        className="reviews__textarea form__textarea"
+        id="review">
+        name="review"
+        placeholder="Tell how was your stay, what you like and what can be improved"
+        value={text}
+        onChange={handleTextareaChange}
+        disabled={isSubmiting}
+      />
+      <div className="reviews__button-wrapper">
+        <p className="reviews__help">
+            To submit review please make sure to set{' '}
+          <span className="reviews__star">rating</span> and describe your stay
+            between <b className="reviews__text-amount">{MIN_COMMENT_LENGTH} and {MAX_COMMENT_LENGTH} characters</b>.
+        </p>
+        <button
+          disabled={isSubmiting || !rating || (text.length < MIN_COMMENT_LENGTH || text.length > MAX_COMMENT_LENGTH)}
+          className="reviews__submit form__submit button"
+          type="submit"
+        >
+            Submit
+        </button>
+      </div>
+    </form>
+  );
+};
+Обновляем список комментариев
+В ТЗ сказано, что комментарии должны идти от новых (сверху) к старым (снизу), а так же их должно быть не больше 10. Тут мы отделаемся малой кровью — достаточно обновить нужный селектор:
+
+export const MAX_COMMENTS = 10;
+import { createSelector } from '@reduxjs/toolkit';
+
+import type { State } from '../../types/state';
+import type { Comment } from '../../types/types';
+import { MAX_COMMENTS, StoreSlice } from '../../const';
+
+...
+export const getComments = ({ [StoreSlice.SiteData]: SITE_DATA }: State): Comment[] => SITE_DATA.comments;
+export const selectComments = createSelector(
+  [getComments],
+  (comments) => [...comments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, MAX_COMMENTS)
+);
+import { selectComments } from '../../store/site-data/selectors';
+
+const Property = (): JSX.Element | null => {
+  const comments = useAppSelector(selectComments);
+    ...
+};
+Разлогиниваем пользователя
+Ранее мы делали аутентификацию пользователя и логин, однако разлогин еще не готов, давайте его подготовим:
+
+import type { History } from 'history';
+import type { AxiosInstance } from 'axios';
+import { createAsyncThunk } from '@reduxjs/toolkit';
+
+import { ApiRoute, AppRoute, HttpCode } from '../const';
+import { Token } from '../utils';
+
+type Extra = {
+  api: AxiosInstance,
+  history: History
+}
+
+export const Action = {
+  ...
+  LOGOUT_USER: 'user/logout',
+};
+
+export const logoutUser = createAsyncThunk<void, undefined, { extra: Extra }>(
+  Action.LOGOUT_USER,
+  async (_, { extra }) => {
+    const { api } = extra;
+    await api.delete(ApiRoute.Logout);
+
+    Token.drop();
+  });
+import { createSlice } from '@reduxjs/toolkit';
+
+import type { UserProcess } from '../../types/state';
+import { logoutUser } from '../action';
+import { AuthorizationStatus, StoreSlice } from '../../const';
+
+const initialState: UserProcess = {
+  authorizationStatus: AuthorizationStatus.Unknown,
+  user: ''
+};
+
+export const userProcess = createSlice({
+  name: StoreSlice.UserProcess,
+  initialState,
+  reducers: {},
+  extraReducers(builder) {
+    builder
+      ...
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = '';
+        state.authorizationStatus = AuthorizationStatus.NoAuth;
+      });
+  }
+});
+Не забываем добавить новый тест:
+
+import { logout, userProcess } from './user-process';
+import { AuthorizationStatus } from '../../const';
+
+...
+
+it('should logout user', () => {
+    const state = {
+      authorizationStatus: AuthorizationStatus.Auth,
+      user: email
+    };
+
+    expect(userProcess.reducer(state, { type: logoutUser.fulfilled.type }))
+      .toEqual({
+        authorizationStatus: AuthorizationStatus.NoAuth,
+        user: ''
+      });
+  });
+И конечно же не забываем задиспатчить новый action в компоненте Header:
+
+import { Link } from 'react-router-dom';
+
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { getAuthorizationStatus, getUser } from '../../store/user-process/selectors';
+import { logout } from '../../store/user-process/user-process';
+
+const Header = () => {
+  const dispatch = useAppDispatch();
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+    const user = useAppSelector(getUser);
+  ...
+
+  const handleLogoutClick = () => {
+    if (authorizationStatus === AuthorizationStatus.Auth) {
+      dispatch(logout());
+    }
+  };
+
+  return (
+        ...
+      <li className="header__nav-item">
+        <Link className="header__nav-link" to={authorizationStatus === AuthorizationStatus.Auth ? AppRoute.Root : AppRoute.Login} onClick={handleLogoutClick}>
+          <span className="header__signout">{authorizationStatus === AuthorizationStatus.Auth ? 'Sign out' : 'Sign in'}</span>
+        </Link>
+      </li>
+      ...
+  );
+};
+Обратите внимание, что после разлогина выбранные ранее избранные предложения остаются выбранными. ТЗ не требует доработки данной логики, однако такое поведение логично.
+
+Для решения этой проблемы доработаем компонент Bookmark и к проверке на isActive добавим проверку на статус авторизации:
+
+import { useAppSelector } from '../../hooks';
+import { getAuthorizationStatus } from '../../store/user-process/selectors';
+import { AuthorizationStatus } from '../../const';
+
+type BookmarkProps = {
+    id: Offer['id'];
+    isActive: boolean;
+    place?: 'place-card' | 'property'
+}
+
+const Bookmark = ({ id, isActive, place = 'place-card' }: BookmarkProps) => {
+  ...
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+
+  return (
+    <button
+      ...
+      className={`${place}__bookmark-button button${(isActive && authorizationStatus === AuthorizationStatus.Auth) ? ` ${place}__bookmark-button--active` : ''
+      }`}
+      type="button"
+    >
+      <svg className="place-card__bookmark-icon" width={place === 'property' ? 31 : 18} height={place === 'property' ? 33 : 19}>
+        <use xlinkHref="#icon-bookmark"></use>
+      </svg>
+      <span className="visually-hidden">{(isActive && authorizationStatus === AuthorizationStatus.Auth) ? 'From' : 'To'} bookmarks</span>
+    </button>
+  );
+};
+Доработаем компонент PrivateRoute
+Если залогиниться, а затем руками перейти по AppRoute.Login, то страница отобразиться, однако этот роут должен быть защищен, как защищена страница Favorite для неавторизованных пользователей. Доработаем компонент PrivateRoute, добавив два новых пропа — кому недоступна страница и куда в таком случае перенаправлять:
+
+import { Navigate } from 'react-router-dom';
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppSelector } from '../../hooks';
+import { getAuthorizationStatus } from '../../store/user-process/selectors';
+import Spinner from '../spinner/spinner';
+
+type PrivateRouteProps = {
+  restrictedFor: AuthorizationStatus;
+  redirectTo: AppRoute;
+  children: JSX.Element;
+}
+
+const PrivateRoute = ({ children, restrictedFor, redirectTo }: PrivateRouteProps): JSX.Element => {
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+
+  if (authorizationStatus === AuthorizationStatus.Unknown) {
+    return <Spinner />;
+  }
+
+  return (
+    authorizationStatus !== restrictedFor
+      ? children
+      : <Navigate to={redirectTo} />
+  );
+};
+Обновим соответствующие тесты:
+
+import { unstable_HistoryRouter as HistoryRouter, Routes, Route } from 'react-router-dom';
+import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureMockStore } from '@jedmao/redux-mock-store';
+
+import PrivateRoute from './private-route';
+import history from '../../history';
+import { AppRoute, AuthorizationStatus, StoreSlice } from '../../const';
+
+const mockStore = configureMockStore();
+
+describe('Component: PrivateRouter', () => {
+  beforeEach(() => {
+    history.push('/private');
+  });
+
+  it('should render component for the public route, when a user is not authorized', () => {
+    const store = mockStore({
+      [StoreSlice.UserProcess]: {
+        authorizationStatus: AuthorizationStatus.NoAuth
+      }
+    });
+
+    render(
+      <Provider store={store}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path={AppRoute.Login}
+              element={<h1>Public Route</h1>}
+            />
+            <Route
+              path='/private'
+              element={
+                <PrivateRoute restrictedFor={AuthorizationStatus.NoAuth} redirectTo={AppRoute.Login}>
+                  <h1>Private Route</h1>
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </HistoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.getByText(/Public Route/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Private Route/i)).not.toBeInTheDocument();
+  });
+
+  it('should render component for the private route, when a user is authorized', () => {
+    const store = mockStore({
+      [StoreSlice.UserProcess]: {
+        authorizationStatus: AuthorizationStatus.Auth
+      }
+    });
+
+    render(
+      <Provider store={store}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path={AppRoute.Login}
+              element={<h1>Public Route</h1>}
+            />
+            <Route
+              path='/private'
+              element={
+                <PrivateRoute restrictedFor={AuthorizationStatus.NoAuth} redirectTo={AppRoute.Login}>
+                  <h1>Private Route</h1>
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </HistoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.getByText(/Private Route/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Public Route/i)).not.toBeInTheDocument();
+  });
+});
+И роутинг в компоненте App:
+
+...
+<Route
+      path={AppRoute.Favorites}
+      element={
+        <PrivateRoute restrictedFor={AuthorizationStatus.NoAuth} redirectTo={AppRoute.Login}>
+          <Favorites />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path={AppRoute.Login}
+      element={
+        <PrivateRoute restrictedFor={AuthorizationStatus.Auth} redirectTo={AppRoute.Root}>
+          <Login />
+        </PrivateRoute>
+      }
+    />
+...
+Сразу после этого у нас упадет тест на проверку маршрутизации should render "Login" when user navigates to "/login", что логично, ведь будучи авторизированным мы не должны иметь доступа к странице, поправим тест:
+
+...
+
+it('should render "Login" when user navigates to "/login"', () => {
+    // logout
+    store.getState()[StoreSlice.UserProcess].authorizationStatus = AuthorizationStatus.NoAuth;
+    store.getState()[StoreSlice.UserProcess].user = '';
+
+    history.push(AppRoute.Login);
+
+    render(fakeApp);
+
+    expect(screen.getByRole('heading')).toHaveTextContent('Sign in');
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+...
+Оповещаем пользователя об ошибках
+Обратите внимание, если отключить интернет и попытаться добавить предложение в избранное, то пользователь никак не узнает об ошибке.
+
+Чтобы централизовано оповещать пользователя о проблемах установим специальный пакет: npm install --save react-toastify
+
+Далее подключим специальный компонент к странице, а так же стили для наших тоастов (модальных окон в углу приложения):
+
+import ReactDOM from 'react-dom/client';
+import { Provider } from 'react-redux';
+import { ToastContainer } from 'react-toastify';
+
+import App from './components/app/app';
+import store from './store';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement,
+);
+
+root.render(
+  <Provider store={store}>
+    <ToastContainer />
+    <App />
+  </Provider>
+);
+Вспомним, что ранее мы писали интерцепторы для наших запросов — это отличное место, чтобы перехватывать ошибки и сообщать о них пользователю:
+
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { toast } from 'react-toastify';
+
+const BACKEND_URL = 'https://10.react.pages.academy/six-cities';
+const REQUEST_TIMEOUT = 5000;
+
+export const createAPI = (): AxiosInstance => {
+  const api = axios.create({
+    baseURL: BACKEND_URL,
+    timeout: REQUEST_TIMEOUT,
+  });
+
+    ...
+
+  api.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError) => {
+      toast.dismiss();
+      toast.warn(error.response ? error.response.data.error : error.message);
+
+      return Promise.reject(error);
+    }
+  );
+
+  return api;
+};
+Доработаем страницу Login
+В ТЗ есть пункт, что справа от формы логина должна находится кнопка с рандомным названием города, клип по которой выполнит переход на страницу Main, а так же в фильтре выберет соответствующий город. Напишем функцию рандомизации и добавим новую логику на страницу Login:
+
+export const getRandomElement = <T>(array: readonly T[]): T => array[Math.floor(Math.random() * array.length)];
+import { Link } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import type { CityName } from '../../types/types';
+
+import { useAppDispatch } from '../../hooks';
+import { getRandomElement } from '../../utils';
+import { AppRoute, cities } from '../../const';
+import { setCity } from '../../store/site-process/site-process';
+
+const Login = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+
+  const handleLinkClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    const cityName = e.currentTarget.textContent as CityName;
+    dispatch(setCity(cityName));
+  };
+
+  return (
+       ...
+      <section className="locations locations--login locations--current">
+        <div className="locations__item">
+          <Link className="locations__item-link" onClick={handleLinkClick} to={AppRoute.Root}>
+            <span>{getRandomElement<CityName>(cities)}</span>
+          </Link>
+        </div>
+      </section>
+    ...
+  );
+};
+Далее обратим внимание, что пароль может состоять минимум из одной буквы и цифры, добавим обработку пароля, о неудаче оповестим пользователя с помощью toast:
+
+export const INVALID_PASSWORD_MESSAGE = 'Password should contains at least one letter and digit';
+export const VALID_PASSWORD_REGEXP = /^(?=.*[0-9])(?=.*[a-zA-Z])([a-zA-Z0-9]+)$/;
+import { toast } from 'react-toastify';
+import type { FormEvent } from 'react';
+import type { UserAuth } from '../../types/types';
+
+import { useAppDispatch } from '../../hooks';
+import { loginUser } from '../../store/action';
+import { VALID_PASSWORD_REGEXP } from '../../const';
+
+const Login = (): JSX.Element => {
+  const dispatch = useAppDispatch();
+
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+
+    const formData = new FormData(form) as Iterable<[UserAuth]>;
+    const data = Object.fromEntries(formData);
+
+    if (!data.password.match(VALID_PASSWORD_REGEXP)) {
+      toast.warn(INVALID_PASSWORD_MESSAGE);
+      return;
+    }
+
+    dispatch(loginUser(data));
+  };
+
+    ...
+};
+Добавим заглушку для пустого списка избранных
+Создаем компонент заглушку FavoritesEmpty:
+
+const FavoritesEmpty = () => (
+  <div className="page__favorites-container container">
+    <section className="favorites favorites--empty">
+      <h1 className="visually-hidden">Favorites (empty)</h1>
+      <div className="favorites__status-wrapper">
+        <b className="favorites__status">Nothing yet saved.</b>
+        <p className="favorites__status-description">Save properties to narrow down search or plan your future trips.</p>
+      </div>
+    </section>
+  </div>);
+И вставляем компонент на страницу Favorites, не забывая в нужных местах добавить дополнительные классы:
+
+import Card from '../../components/card/card';
+import FavoritesEmpty from '../../components/favorites-empty/favorites-empty';
+import Spinner from '../../components/spinner/spinner';
+import { useAppSelector } from '../../hooks';
+import { getFavoriteOffers, getIsFavoriteOffersLoading } from '../../store/site-data/selectors';
+import type { Offer } from '../../types/types';
+
+const Favorites = (): JSX.Element => {
+  const isFavoriteOffersLoading = useAppSelector(getIsFavoriteOffersLoading);
+  const favoriteOffers = useAppSelector(getFavoriteOffers);
+
+  const groupedOffersByCity = favoriteOffers.reduce<{ [key: string ]: Offer[] }>((acc, curr) => {
+    if (curr.isFavorite) {
+      const city = curr.city.name;
+
+      if (!(city in acc)) {
+        acc[city] = [];
+      }
+
+      acc[city].push(curr);
+    }
+
+    return acc;
+  }, {});
+
+  if (isFavoriteOffersLoading) {
+    return <Spinner />;
+  }
+
+  return (
+    <>
+      <main className={`page__main page__main--favorites${favoriteOffers.length === 0 ? ' page__main--favorites-empty' : ''}`}>
+        {favoriteOffers.length === 0 ? <FavoritesEmpty /> : (
+          <div className="page__favorites-container container">
+            <section className="favorites">
+              <h1 className="favorites__title">Saved listing</h1>
+              <ul className="favorites__list">
+                {Object.entries(groupedOffersByCity).map(([city, groupedOffers]) => (
+                  <li className="favorites__locations-items" key={city}>
+                    <div className="favorites__locations locations locations--current">
+                      <div className="locations__item">
+                        <div className="locations__item-link">
+                          <span>{city}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="favorites__places">
+                      {groupedOffers.map((offer) => <Card key={offer.id} {...offer} place="favorites" />)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>)}
+      </main>
+      <footer className="footer container">
+        <a className="footer__logo-link" href="main.html">
+          <img className="footer__logo" src="img/logo.svg" alt="6 cities logo" width={64} height={33} />
+        </a>
+      </footer>
+    </>
+  );
+};
+Обратите внимание, что помимо всего нам нужно навесить нужный класс page--favorites-empty на корень страницы, однако мы сделаем это в следующем шаге.
+
+Доработаем компонент шапки
+И последнее о чем следует позаботиться — компонент Header. Дело в том, что сейчас он подключен только на главной странице, однако на других страницах он тоже нужен, а еще стоит заметить, что некоторые страницы имеют собственные классы. Первое, что следует сделать — это очистить страницы от хедера и обертки <div className="page ..." /> т.к эта обёртка, как и Header повторяется на всех страницах. Далее следует централизованно добавить наш Header ко всем страницам — сделать это можно внутри роутинга:
+
+import { unstable_HistoryRouter as HistoryRouter, Routes, Route } from 'react-router-dom';
+import 'react-toastify/dist/ReactToastify.css';
+
+import Main from '../../pages/main/main';
+import Login from '../../pages/login/login';
+import Favorites from '../../pages/favorites/favorites';
+import Property from '../../pages/property/property';
+import NotFound from '../../pages/not-found/not-found';
+import PrivateRoute from '../private-route/private-route';
+import { AppRoute, AuthorizationStatus } from '../../const';
+import history from '../../history';
+import Header from '../header/header';
+
+const App = (): JSX.Element => (
+  <HistoryRouter history={history}>
+    <Routes>
+      <Route element={<Header />}>
+        <Route index element={<Main />} />
+        <Route path={`${AppRoute.Property}/:id`} element={<Property />} />
+        <Route
+          path={AppRoute.Favorites}
+          element={
+            <PrivateRoute restrictedFor={AuthorizationStatus.NoAuth} redirectTo={AppRoute.Login}>
+              <Favorites />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path={AppRoute.Login}
+          element={
+            <PrivateRoute restrictedFor={AuthorizationStatus.Auth} redirectTo={AppRoute.Root}>
+              <Login />
+            </PrivateRoute>
+          }
+        />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  </HistoryRouter>
+);
+Далее следует доработать компонент Header той самой обёрткой с нужными классами в зависимости от AppRoute, а так же воспользоваться компонентом Outlet из react-router-dom для того, чтобы рисовать содержимое страницы, дополнительно обратим внимание, что кнопки Sign In на странице Login быть не должно:
+
+import { Link, Outlet, useLocation } from 'react-router-dom';
+
+import { AppRoute, AuthorizationStatus } from '../../const';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { getFavoriteOffers } from '../../store/site-data/selectors';
+import { getAuthorizationStatus, getUser } from '../../store/user-process/selectors';
+import { logout } from '../../store/user-process/user-process';
+
+const Header = () => {
+  const { pathname } = useLocation() as { pathname: AppRoute };
+  const dispatch = useAppDispatch();
+  const authorizationStatus = useAppSelector(getAuthorizationStatus);
+  const user = useAppSelector(getUser);
+  const favoriteOffers = useAppSelector(getFavoriteOffers);
+
+  const handleLogoutClick = () => {
+    if (authorizationStatus === AuthorizationStatus.Auth) {
+      dispatch(logout());
+    }
+  };
+
+const RootClassName: Record<AppRoute, string> = {
+    [AppRoute.Root]: 'page--gray page--main',
+    [AppRoute.Login]: 'page--gray page--login',
+    [AppRoute.Favorites]: favoriteOffers.length === 0 ? 'page--favorites-empty' : '',
+    [AppRoute.Property]: '',
+    [AppRoute.NotFound]: '',
+  };
+
+  return (
+    <div className={`page ${RootClassName[pathname]}`}>
+      <header className="header">
+        <div className="container">
+          <div className="header__wrapper">
+            <div className="header__left">
+              <Link className="header__logo-link header__logo-link--active" to={AppRoute.Root}>
+                <img
+                  className="header__logo"
+                  src="img/logo.svg"
+                  alt="6 cities logo"
+                  width="81"
+                  height="41"
+                />
+              </Link>
+            </div>
+            <nav className="header__nav">
+              <ul className="header__nav-list">
+                {authorizationStatus === AuthorizationStatus.Auth && (
+                  <li className="header__nav-item user">
+                    <Link
+                      className="header__nav-link header__nav-link--profile"
+                      to={AppRoute.Favorites}
+                    >
+                      <div className="header__avatar-wrapper user__avatar-wrapper"></div>
+                      <span className="header__user-name user__name">
+                        {user}
+                      </span>
+                      <span className="header__favorite-count">{favoriteOffers.length}</span>
+                    </Link>
+                  </li>)}
+                {pathname !== AppRoute.Login && (
+                  <li className="header__nav-item">
+                    <Link className="header__nav-link" to={authorizationStatus === AuthorizationStatus.Auth ? AppRoute.Root : AppRoute.Login} onClick={handleLogoutClick}>
+                      <span className="header__signout">{authorizationStatus === AuthorizationStatus.Auth ? 'Sign out' : 'Sign in'}</span>
+                    </Link>
+                  </li>)}
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </header>
+      <Outlet />
+    </div>
+  );
+};
+Обратите внимание, что наш компонент Header превратился в обёртку над другими страницами, которая повторяется везде — такие компоненты обычно называют Layout
+
+Дополнительный селектор
+Заметим, что в коде очень много похожих конструкций на проверку авторизации authorizationStatus === AuthorizationStatus.Auth, чтобы не повторять данную проверку во всех компонентах — вынесем её в отдельный селектор и добавим в нужные компоненты:
+
+import { AuthorizationStatus, StoreSlice } from '../../const';
+import type { State } from '../../types/state';
+
+export const getIsAuthorized = ({ [StoreSlice.UserProcess]: USER_PROCESS }: State): boolean => USER_PROCESS.authorizationStatus === AuthorizationStatus.Auth;
+Дорабатываем компонент карточки
+Ранее, чтобы модифицировать карточку, мы пользовались свойством place, в котором перечисляли все возможные классы. Но это негибко — страниц и мест с разными классами может быть намного больше чем три, однако, заметим, что вариаций карточки всего две — маленькая и большая. Добавим соответствующий проп для размера isMini, а вариативность классов оставим за разработчиком:
+
+import { memo } from 'react';
+import { Link } from 'react-router-dom';
+
+import type { Offer } from '../../types/types';
+import { AppRoute } from '../../const';
+import { capitalize, getStarsWidth } from '../../utils';
+import Bookmark from '../bookmark/bookmark';
+
+type CardProps = Offer & {
+  onMouseEnter?: (id: number) => void;
+  onMouseLeave?: () => void;
+  isMini?: boolean;
+  classPrefix?: string;
+};
+
+const Card = ({
+  id,
+  price,
+  rating,
+  title,
+  isPremium,
+  isFavorite,
+  previewImage,
+  type,
+  isMini = false,
+  classPrefix = 'cities',
+  onMouseEnter = () => void 0,
+  onMouseLeave = () => void 0,
+}: CardProps): JSX.Element => {
+  const handleMouseEnter = () => {
+    onMouseEnter(id);
+  };
+
+  return (
+    <article
+      className={`${classPrefix}__card place-card`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {isPremium && (
+        <div className="place-card__mark">
+          <span>Premium</span>
+        </div>
+      )}
+      <div className={`${classPrefix}__image-wrapper place-card__image-wrapper`}>
+        <img
+          className="place-card__image"
+          src={previewImage}
+          width={isMini ? 150 : 260}
+          height={isMini ? 110 : 200}
+          alt={title}
+        />
+      </div>
+      <div className="place-card__info">
+        <div className="place-card__price-wrapper">
+          <div className="place-card__price">
+            <b className="place-card__price-value">&euro;{price}</b>
+            <span className="place-card__price-text">&#47;&nbsp;night</span>
+          </div>
+          <Bookmark id={id} isActive={isFavorite} />
+        </div>
+        <div className="place-card__rating rating">
+          <div className="place-card__stars rating__stars">
+            <span
+              style={{
+                width: getStarsWidth(rating),
+              }}
+            >
+            </span>
+            <span className="visually-hidden">Rating</span>
+          </div>
+        </div>
+        <h2 className="place-card__name">
+          <Link to={`${AppRoute.Property}/${id}`}>{title}</Link>
+        </h2>
+        <p className="place-card__type">{capitalize(type)}</p>
+      </div>
+    </article>
+  );
+};
+Поздравляем с завершением проекта!

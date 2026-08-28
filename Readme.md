@@ -5683,4 +5683,143 @@ const Login = (): JSX.Element => {
 };
 Оставшиеся асинхронные экшены и компоненты стоит протестировать по аналогии.
 
+### 9.8. Последнее испытание. Часть 1
 
+В этом задании мы продолжим практиковаться в написании тестов и познакомимся с ещё одним пакетом. С его помощью мы сможем написать тесты для собственных хуков.
+
+На примере проекта «Шесть городов» вы можете посмотреть, как должен выглядеть проект после выполнения этого задания.
+
+Задача
+Воспользуйтесь возможностями пакета @testing-library/react-hooks (он уже установлен) и напишите тесты для всех созданных хуков. Обратите внимание: речь идёт о хуках, которые были созданы именно вами, а не предоставлены React или другими пакетами. Если вы не создавали собственные хуки, пропустите этот шаг.
+
+Напишите тесты для созданных middleware в Redux. Если вы не создавали middleware, пропустите этот шаг.
+
+Покройте тестами все HOC (High Order Components). Если вы не создавали HOC, пропустите этот шаг.
+
+Напишите тесты для компонента PrivateRoute (приватный маршрут).
+
+Покройте тестами остальные компоненты. Пройдитесь по всему проекту и напишите тесты для оставшихся компонентов. Пересмотрите ранее созданные тесты. Если в компоненте есть элементы управления, убедитесь, что при взаимодействии с ними выполняются действия. Например, нажатие на кнопку приводит к какому-то действию. При необходимости допишите тест-кейсы.
+
+### Последнее испытание (часть 1)
+
+Архив проекта
+
+В данном задании мы научимся тестировать кастомные хуки, а так же протестируем компонент PrivateRoute. В этом нам поможет уже известная нам библиотека @testing-library/react.
+
+Тестируем компонент приватного маршрута
+Вспомним, что логика компонента подразумевает редиректы, если того требует AuthorizationStatus. Поскольку компонент подключен к хранилищу, то нам снова понадобится redux-mock-store:
+
+import { unstable_HistoryRouter as HistoryRouter, Routes, Route } from 'react-router-dom';
+import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { configureMockStore } from '@jedmao/redux-mock-store';
+
+import PrivateRoute from './private-route';
+import history from '../../history';
+import { AppRoute, AuthorizationStatus, StoreSlice } from '../../const';
+
+const mockStore = configureMockStore();
+
+describe('Component: PrivateRouter', () => {
+  beforeEach(() => {
+    history.push('/private');
+  });
+
+  it('should render component for the public route, when a user is not authorized', () => {
+    const store = mockStore({
+      [StoreSlice.UserProcess]: {
+        authorizationStatus: AuthorizationStatus.NoAuth
+      }
+    });
+
+    render(
+      <Provider store={store}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path={AppRoute.Login}
+              element={<h1>Public Route</h1>}
+            />
+            <Route
+              path='/private'
+              element={
+                <PrivateRoute>
+                  <h1>Private Route</h1>
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </HistoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.getByText(/Public Route/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Private Route/i)).not.toBeInTheDocument();
+  });
+
+  it('should render component for the private route, when a user is authorized', () => {
+    const store = mockStore({
+      [StoreSlice.UserProcess]: {
+        authorizationStatus: AuthorizationStatus.Auth
+      }
+    });
+
+    render(
+      <Provider store={store}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path={AppRoute.Login}
+              element={<h1>Public Route</h1>}
+            />
+            <Route
+              path='/private'
+              element={
+                <PrivateRoute>
+                  <h1>Private Route</h1>
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </HistoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.getByText(/Private Route/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Public Route/i)).not.toBeInTheDocument();
+  });
+});
+Тестируем хук useMap
+У нас в проекте не так много кастомных хуков — всего один. Тестировать их несложно, ведь на самом деле хук — это обычная функция, которая что-то принимает и что-то возвращает. Давайте рассмотрим на примере тестирование хука useMap:
+
+import { render, screen, renderHook } from '@testing-library/react';
+import { Map } from 'leaflet';
+
+import { cities, CityLocation } from '../const';
+import useMap from './useMap';
+
+const DummyComponent = () => <div data-testid="dummy"> />;
+
+const city = {
+  name: cities[0],
+  location: CityLocation[cities[0]]
+};
+
+describe('Hook: useMap', () => {
+  it('should return map', () => {
+    render(<DummyComponent />);
+    const mapContainer = screen.getByTestId('dummy');
+
+    expect(mapContainer).toBeEmptyDOMElement();
+
+    const { result } = renderHook(() =>
+      useMap({ current: mapContainer}, city),
+    );
+
+    const map = result.current;
+
+    expect(map).toBeInstanceOf(Map);
+    expect(mapContainer).not.toBeEmptyDOMElement();
+  });
+});
+Первое что мы сделали — создали тестовый компонент DummyComponent, в котором будет отрисовываться наша карта, а так же передали все данные для города. Убедились, что в исходном состоянии компонент пуст, а после запустили хук useMap, передав в него ref объект со ссылкой на наш компонент-контейнер. Далее выполнили две проверки — что возвращаемое значение действительно является картой и наш контейнер теперь не пуст.
